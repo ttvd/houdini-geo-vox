@@ -8,6 +8,18 @@
 #include <UT/UT_IOTable.h>
 #include <UT/UT_Assert.h>
 
+#define GEOVOX_MAKE_ID(A, B, C, D) \
+    ( A ) | ( B << 8 ) | ( C << 16 ) | ( D << 24 )
+
+const unsigned int GEO_Vox::s_vox_magic = GEOVOX_MAKE_ID('V', 'O', 'X', ' ');
+const unsigned int GEO_Vox::s_vox_main = GEOVOX_MAKE_ID('M', 'A', 'I', 'N');
+const unsigned int GEO_Vox::s_vox_size = GEOVOX_MAKE_ID('S', 'I', 'Z', 'E');
+const unsigned int GEO_Vox::s_vox_xyzi = GEOVOX_MAKE_ID('X', 'Y', 'Z', 'I');
+const unsigned int GEO_Vox::s_vox_rgba = GEOVOX_MAKE_ID('R', 'G', 'B', 'A');
+
+const unsigned GEO_Vox::s_vox_version = 150u;
+
+
 void
 newGeometryIO(void* parm)
 {
@@ -79,7 +91,7 @@ GEO_Vox::checkExtension(const char* name)
 int
 GEO_Vox::checkMagicNumber(unsigned magic)
 {
-    return 0;
+    return GEO_Vox::s_vox_magic == magic;
 }
 
 
@@ -90,6 +102,31 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
 
     GU_Detail* gu_detail = dynamic_cast<GU_Detail*>(detail);
     UT_ASSERT(gu_detail);
+
+    if(!ate_magic)
+    {
+        unsigned vox_magic_number = 0;
+        if(stream.read(&vox_magic_number) != 1)
+        {
+            return GA_Detail::IOStatus(status);
+        }
+
+        if(!checkMagicNumber(vox_magic_number))
+        {
+            return GA_Detail::IOStatus(status);
+        }
+    }
+
+    unsigned vox_version = 0;
+    if(stream.read(&vox_version) != 1)
+    {
+        return GA_Detail::IOStatus(status);
+    }
+
+    if(GEO_Vox::s_vox_version < vox_version)
+    {
+        return GA_Detail::IOStatus(status);
+    }
 
     if(!status)
     {

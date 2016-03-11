@@ -25,6 +25,18 @@ class GEO_Vox : public GEO_IOTranslator
 
     protected:
 
+        //! Magic numbers used by parser.
+        static const unsigned int s_vox_magic;
+        static const unsigned int s_vox_main;
+        static const unsigned int s_vox_size;
+        static const unsigned int s_vox_xyzi;
+        static const unsigned int s_vox_rgba;
+
+        //! Supported version.
+        static const unsigned int s_vox_version;
+
+    protected:
+
         //! Cached filename.
         UT_String m_filename;
 };
