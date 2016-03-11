@@ -8,14 +8,14 @@
 #include <UT/UT_IOTable.h>
 #include <UT/UT_Assert.h>
 
-#define GEOVOX_MAKE_ID(A, B, C, D) \
-    ( A ) | ( B << 8 ) | ( C << 16 ) | ( D << 24 )
+#define GEOVOX_MAKE_ID(A, B, C, D) ( A ) | ( B << 8 ) | ( C << 16 ) | ( D << 24 )
 
 const unsigned int GEO_Vox::s_vox_magic = GEOVOX_MAKE_ID('V', 'O', 'X', ' ');
 const unsigned int GEO_Vox::s_vox_main = GEOVOX_MAKE_ID('M', 'A', 'I', 'N');
 const unsigned int GEO_Vox::s_vox_size = GEOVOX_MAKE_ID('S', 'I', 'Z', 'E');
 const unsigned int GEO_Vox::s_vox_xyzi = GEOVOX_MAKE_ID('X', 'Y', 'Z', 'I');
 const unsigned int GEO_Vox::s_vox_rgba = GEOVOX_MAKE_ID('R', 'G', 'B', 'A');
+
 
 const unsigned GEO_Vox::s_vox_version = 150u;
 
@@ -123,7 +123,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         return GA_Detail::IOStatus(status);
     }
 
-    if(GEO_Vox::s_vox_version < vox_version)
+    if(GEO_Vox::s_vox_version != vox_version)
     {
         return GA_Detail::IOStatus(status);
     }
@@ -141,4 +141,24 @@ GA_Detail::IOStatus
 GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
 {
     return GA_Detail::IOStatus(false);
+}
+
+
+bool
+GEO_Vox::ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk)
+{
+    if(stream.read(&chunk.chunk_id) != 1)
+    {
+        return false;
+    }
+
+    if(stream.read(&chunk.content_size) != 1)
+    {
+        return false;
+    }
+
+    if(stream.read(&chunk.children_chunk_size) != 1)
+    {
+        return false;
+    }
 }

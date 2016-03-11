@@ -6,6 +6,15 @@
 class GEO_PrimPoly;
 class GU_Detail;
 
+struct GEO_VoxChunk
+{
+    unsigned int chunk_id;
+    unsigned int content_size;
+    unsigned int children_chunk_size;
+    unsigned int children_chunks_start;
+    unsigned int children_chunks_end;
+};
+
 class GEO_Vox : public GEO_IOTranslator
 {
     public:
@@ -22,6 +31,11 @@ class GEO_Vox : public GEO_IOTranslator
         virtual int checkMagicNumber(unsigned magic);
         virtual GA_Detail::IOStatus fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic);
         virtual GA_Detail::IOStatus fileSave(const GEO_Detail* detail, std::ostream& stream);
+
+    protected:
+
+        //! Read a chunk.
+        bool ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk);
 
     protected:
 
