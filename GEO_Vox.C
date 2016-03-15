@@ -106,7 +106,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
     if(!ate_magic)
     {
         unsigned vox_magic_number = 0;
-        if(stream.read(&vox_magic_number) != 1)
+        if(stream.bread(&vox_magic_number) != 1)
         {
             return GA_Detail::IOStatus(status);
         }
@@ -118,7 +118,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
     }
 
     unsigned vox_version = 0;
-    if(stream.read(&vox_version) != 1)
+    if(stream.bread(&vox_version) != 1)
     {
         return GA_Detail::IOStatus(status);
     }
@@ -164,17 +164,17 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
 
         if(GEO_Vox::s_vox_size == vox_chunk_child.chunk_id)
         {
-            if(stream.read(&vox_size_x) != 1)
+            if(stream.bread(&vox_size_x) != 1)
             {
                 return GA_Detail::IOStatus(status);
             }
 
-            if(stream.read(&vox_size_y) != 1)
+            if(stream.bread(&vox_size_y) != 1)
             {
                 return GA_Detail::IOStatus(status);
             }
 
-            if(stream.read(&vox_size_z) != 1)
+            if(stream.bread(&vox_size_z) != 1)
             {
                 return GA_Detail::IOStatus(status);
             }
@@ -183,7 +183,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         {
             unsigned int vox_voxel_count = 0u;
 
-            if(stream.read(&vox_voxel_count) != 1)
+            if(stream.bread(&vox_voxel_count) != 1)
             {
                 return GA_Detail::IOStatus(status);
             }
@@ -250,17 +250,17 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
 bool
 GEO_Vox::ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk)
 {
-    if(stream.read(&chunk.chunk_id) != 1)
+    if(stream.bread(&chunk.chunk_id) != 1)
     {
         return false;
     }
 
-    if(stream.read(&chunk.content_size) != 1)
+    if(stream.bread(&chunk.content_size) != 1)
     {
         return false;
     }
 
-    if(stream.read(&chunk.children_chunk_size) != 1)
+    if(stream.bread(&chunk.children_chunk_size) != 1)
     {
         return false;
     }
@@ -275,6 +275,26 @@ GEO_Vox::ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk)
 bool
 GEO_Vox::ReadPaletteColor(UT_IStream& stream, GEO_VoxPaletteColor& palette_color)
 {
+    if(stream.bread(&palette_color.r) != 1)
+    {
+        return false;
+    }
+
+    if(stream.bread(&palette_color.g) != 1)
+    {
+        return false;
+    }
+
+    if(stream.bread(&palette_color.b) != 1)
+    {
+        return false;
+    }
+
+    if(stream.bread(&palette_color.a) != 1)
+    {
+        return false;
+    }
+
     return true;
 }
 
@@ -282,5 +302,25 @@ GEO_Vox::ReadPaletteColor(UT_IStream& stream, GEO_VoxPaletteColor& palette_color
 bool
 GEO_Vox::ReadVoxel(UT_IStream& stream, GEO_VoxVoxel& vox_voxel)
 {
+    if(stream.bread(&vox_voxel.x) != 1)
+    {
+        return false;
+    }
+
+    if(stream.bread(&vox_voxel.y) != 1)
+    {
+        return false;
+    }
+
+    if(stream.bread(&vox_voxel.z) != 1)
+    {
+        return false;
+    }
+
+    if(stream.bread(&vox_voxel.palette_index) != 1)
+    {
+        return false;
+    }
+
     return true;
 }
