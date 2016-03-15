@@ -23,6 +23,14 @@ struct GEO_VoxPaletteColor
     unsigned char a;
 };
 
+struct GEO_VoxVoxel
+{
+    unsigned char x;
+    unsigned char y;
+    unsigned char z;
+    unsigned char palette_index;
+};
+
 class GEO_Vox : public GEO_IOTranslator
 {
     public:
@@ -48,6 +56,9 @@ class GEO_Vox : public GEO_IOTranslator
         //! Read a palette entry.
         bool ReadPaletteColor(UT_IStream& stream, GEO_VoxPaletteColor& palette_color);
 
+        //! Read a voxel entry.
+        bool ReadVoxel(UT_IStream& stream, GEO_VoxVoxel& vox_voxel);
+
     protected:
 
         //! Magic numbers used by parser.
@@ -56,6 +67,9 @@ class GEO_Vox : public GEO_IOTranslator
         static const unsigned int s_vox_size;
         static const unsigned int s_vox_xyzi;
         static const unsigned int s_vox_rgba;
+
+        //! Palette size.
+        static const unsigned int s_vox_palette_size;
 
         //! Supported version.
         static const unsigned int s_vox_version;

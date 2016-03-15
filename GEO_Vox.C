@@ -16,8 +16,8 @@ const unsigned int GEO_Vox::s_vox_size = GEOVOX_MAKE_ID('S', 'I', 'Z', 'E');
 const unsigned int GEO_Vox::s_vox_xyzi = GEOVOX_MAKE_ID('X', 'Y', 'Z', 'I');
 const unsigned int GEO_Vox::s_vox_rgba = GEOVOX_MAKE_ID('R', 'G', 'B', 'A');
 
-
-const unsigned GEO_Vox::s_vox_version = 150u;
+const unsigned int GEO_Vox::s_vox_version = 150u;
+const unsigned int GEO_Vox::s_vox_palette_size = 256u;
 
 
 void
@@ -151,6 +151,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
     unsigned int vox_size_z = 0u;
 
     UT_Array<GEO_VoxPaletteColor> vox_palette;
+    UT_Array<GEO_VoxVoxel> vox_voxels;
 
     // We start reading chunks specified in the main chunk.
     while(true)
@@ -180,12 +181,29 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         }
         else if(GEO_Vox::s_vox_xyzi == vox_chunk_child.chunk_id)
         {
+            unsigned int vox_voxel_count = 0u;
 
+            if(stream.read(&vox_voxel_count) != 1)
+            {
+                return GA_Detail::IOStatus(status);
+            }
+
+            vox_voxels.setSize(vox_voxel_count);
+            for(unsigned int idx = 0; idx < vox_voxel_count; ++idx)
+            {
+                GEO_VoxVoxel vox_voxel;
+                if(!ReadVoxel(stream, vox_voxel))
+                {
+                    return GA_Detail::IOStatus(status);
+                }
+
+                vox_voxels[idx] = vox_voxel;
+            }
         }
         else if(GEO_Vox::s_vox_rgba == vox_chunk_child.chunk_id)
         {
-            vox_palette.setSize(256);
-            for(unsigned int idx = 0; idx < 256; ++idx)
+            vox_palette.setSize(GEO_Vox::s_vox_palette_size);
+            for(unsigned int idx = 0; idx < GEO_Vox::s_vox_palette_size; ++idx)
             {
                 GEO_VoxPaletteColor vox_palette_color;
                 if(!ReadPaletteColor(stream, vox_palette_color))
@@ -198,9 +216,14 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         }
         else
         {
-            //return GA_Detail::IOStatus(status);
+            // We don't know this chunk, skip content in addition to skipping children.
+            if(!stream.seekg(vox_chunk_child.content_size, UT_IStream::UT_SEEK_BEG))
+            {
+                return GA_Detail::IOStatus(status);
+            }
         }
 
+        // Skip children.
         if(!stream.seekg(vox_chunk_child.children_chunk_size, UT_IStream::UT_SEEK_BEG))
         {
             return GA_Detail::IOStatus(status);
@@ -251,6 +274,13 @@ GEO_Vox::ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk)
 
 bool
 GEO_Vox::ReadPaletteColor(UT_IStream& stream, GEO_VoxPaletteColor& palette_color)
+{
+    return true;
+}
+
+
+bool
+GEO_Vox::ReadVoxel(UT_IStream& stream, GEO_VoxVoxel& vox_voxel)
 {
     return true;
 }
