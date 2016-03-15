@@ -15,6 +15,14 @@ struct GEO_VoxChunk
     unsigned int children_chunks_end;
 };
 
+struct GEO_VoxPaletteColor
+{
+    unsigned char r;
+    unsigned char g;
+    unsigned char b;
+    unsigned char a;
+};
+
 class GEO_Vox : public GEO_IOTranslator
 {
     public:
@@ -36,6 +44,9 @@ class GEO_Vox : public GEO_IOTranslator
 
         //! Read a chunk.
         bool ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk);
+
+        //! Read a palette entry.
+        bool ReadPaletteColor(UT_IStream& stream, GEO_VoxPaletteColor& palette_color);
 
     protected:
 

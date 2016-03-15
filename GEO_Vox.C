@@ -128,11 +128,91 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         return GA_Detail::IOStatus(status);
     }
 
+    GEO_VoxChunk vox_chunk_main;
+    if(!ReadVoxChunk(stream, vox_chunk_main))
+    {
+        return GA_Detail::IOStatus(status);
+    }
+
+    if(GEO_Vox::s_vox_main != vox_chunk_main.chunk_id)
+    {
+        return GA_Detail::IOStatus(status);
+    }
+
+    // We skip the content of main chunk.
+    if(!stream.seekg(vox_chunk_main.content_size, UT_IStream::UT_SEEK_BEG))
+    {
+        return GA_Detail::IOStatus(status);
+    }
+
+    // Variables to read voxel data into.
+    unsigned int vox_size_x = 0u;
+    unsigned int vox_size_y = 0u;
+    unsigned int vox_size_z = 0u;
+
+    UT_Array<GEO_VoxPaletteColor> vox_palette;
+
+    // We start reading chunks specified in the main chunk.
+    while(true)
+    {
+        GEO_VoxChunk vox_chunk_child;
+        if(!ReadVoxChunk(stream, vox_chunk_child))
+        {
+            return GA_Detail::IOStatus(status);
+        }
+
+        if(GEO_Vox::s_vox_size == vox_chunk_child.chunk_id)
+        {
+            if(stream.read(&vox_size_x) != 1)
+            {
+                return GA_Detail::IOStatus(status);
+            }
+
+            if(stream.read(&vox_size_y) != 1)
+            {
+                return GA_Detail::IOStatus(status);
+            }
+
+            if(stream.read(&vox_size_z) != 1)
+            {
+                return GA_Detail::IOStatus(status);
+            }
+        }
+        else if(GEO_Vox::s_vox_xyzi == vox_chunk_child.chunk_id)
+        {
+
+        }
+        else if(GEO_Vox::s_vox_rgba == vox_chunk_child.chunk_id)
+        {
+            vox_palette.setSize(256);
+            for(unsigned int idx = 0; idx < 256; ++idx)
+            {
+                GEO_VoxPaletteColor vox_palette_color;
+                if(!ReadPaletteColor(stream, vox_palette_color))
+                {
+                    return GA_Detail::IOStatus(status);
+                }
+
+                vox_palette[idx] = vox_palette_color;
+            }
+        }
+        else
+        {
+            //return GA_Detail::IOStatus(status);
+        }
+
+        if(!stream.seekg(vox_chunk_child.children_chunk_size, UT_IStream::UT_SEEK_BEG))
+        {
+            return GA_Detail::IOStatus(status);
+        }
+    }
+
     if(!status)
     {
         detail->clearAndDestroy();
     }
 
+    status = true;
     return GA_Detail::IOStatus(status);
 }
 
@@ -161,4 +241,16 @@ GEO_Vox::ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk)
     {
         return false;
     }
+
+    chunk.children_chunks_start = 3 * sizeof(unsigned int) + chunk.content_size * sizeof(unsigned char);
+    chunk.children_chunks_end = chunk.children_chunks_start + chunk.children_chunk_size * sizeof(unsigned char);
+
+    return true;
+}
+
+
+bool
+GEO_Vox::ReadPaletteColor(UT_IStream& stream, GEO_VoxPaletteColor& palette_color)
+{
+    return true;
 }
