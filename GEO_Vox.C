@@ -5,6 +5,7 @@
 #include <GEO/GEO_Detail.h>
 #include <GEO/GEO_PrimPoly.h>
 #include <GU/GU_Detail.h>
+#include <GU/GU_PrimVolume.h>
 #include <UT/UT_IOTable.h>
 #include <UT/UT_Assert.h>
 
@@ -227,6 +228,31 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         if(!stream.seekg(vox_chunk_child.children_chunk_size, UT_IStream::UT_SEEK_BEG))
         {
             return GA_Detail::IOStatus(status);
+        }
+    }
+
+    //UT_Matrix3 xform;
+    //xform.identity();
+    //xform.scale(vox_size_x * 0.5f, vox_size_y * 0.5f, vox_size_z * 0.5f);
+
+    for(unsigned int idx_channel = 0; idx_channel < 4; ++idx_channel)
+    {
+        GU_PrimVolume* volume = (GU_PrimVolume*) GU_PrimVolume::build((GU_Detail*) detail);
+        UT_VoxelArrayWriteHandleF handle = volume->getVoxelWriteHandle();
+        handle->size(vox_size_x, vox_size_y, vox_size_z);
+
+        for(unsigned int idx_z = 0; idx_z < vox_size_z; ++idx_z)
+        {
+            for(unsigned int idx_y = 0; idx_y < vox_size_y; ++idx_y)
+            {
+                for(unsigned int idx_x = 0; idx_x < vox_size_x; ++idx_x)
+                {
+                    const GEO_VoxPaletteColor& vox_color =
+                        vox_palette((idx_z * vox_size_y * vox_size_x) + (idx_y * vox_size_x) + idx_x);
+
+                    handle->setValue(idx_x, idx_y, idx_z, vox_value.data[idx_channel]);
+                }
+            }
         }
     }
 

@@ -17,10 +17,17 @@ struct GEO_VoxChunk
 
 struct GEO_VoxPaletteColor
 {
-    unsigned char r;
-    unsigned char g;
-    unsigned char b;
-    unsigned char a;
+    union
+    {
+        struct
+        {
+            unsigned char r;
+            unsigned char g;
+            unsigned char b;
+            unsigned char a;
+        };
+        unsigned char data[4];
+    };
 };
 
 struct GEO_VoxVoxel
