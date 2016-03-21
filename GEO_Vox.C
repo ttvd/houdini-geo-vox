@@ -8,6 +8,7 @@
 #include <GU/GU_PrimVolume.h>
 #include <UT/UT_IOTable.h>
 #include <UT/UT_Assert.h>
+#include <UT/UT_Endian.h>
 
 #define GEOVOX_MAKE_ID(A, B, C, D) ( A ) | ( B << 8 ) | ( C << 16 ) | ( D << 24 )
 
@@ -20,6 +21,7 @@ const unsigned int GEO_Vox::s_vox_rgba = GEOVOX_MAKE_ID('R', 'G', 'B', 'A');
 const unsigned int GEO_Vox::s_vox_version = 150u;
 const unsigned int GEO_Vox::s_vox_palette_size = 256u;
 
+// Taken from https://voxel.codeplex.com/wikipage?title=Sample%20Codes .
 const unsigned int GEO_Vox::s_vox_default_palette[256u] =
 {
     0x00000000, 0xffffffff, 0xffccffff, 0xff99ffff, 0xff66ffff, 0xff33ffff,
@@ -153,11 +155,13 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
 
     if(!ate_magic)
     {
-        unsigned vox_magic_number = 0;
+        unsigned int vox_magic_number = 0;
         if(stream.bread(&vox_magic_number) != 1)
         {
             return GA_Detail::IOStatus(status);
         }
+
+        UTswap_int32(vox_magic_number, vox_magic_number);
 
         if(!checkMagicNumber(vox_magic_number))
         {
@@ -165,11 +169,13 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         }
     }
 
-    unsigned vox_version = 0;
+    unsigned int vox_version = 0;
     if(stream.bread(&vox_version) != 1)
     {
         return GA_Detail::IOStatus(status);
     }
+
+    UTswap_int32(vox_version, vox_version);
 
     if(GEO_Vox::s_vox_version != vox_version)
     {
@@ -188,7 +194,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
     }
 
     // We skip the content of main chunk.
-    if(!stream.seekg(vox_chunk_main.content_size, UT_IStream::UT_SEEK_BEG))
+    if(!stream.seekg(vox_chunk_main.content_size, UT_IStream::UT_SEEK_CUR))
     {
         return GA_Detail::IOStatus(status);
     }
@@ -217,15 +223,21 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
                 return GA_Detail::IOStatus(status);
             }
 
+            UTswap_int32(vox_size_x, vox_size_x);
+
             if(stream.bread(&vox_size_y) != 1)
             {
                 return GA_Detail::IOStatus(status);
             }
 
+            UTswap_int32(vox_size_y, vox_size_y);
+
             if(stream.bread(&vox_size_z) != 1)
             {
                 return GA_Detail::IOStatus(status);
             }
+
+            UTswap_int32(vox_size_z, vox_size_z);
         }
         else if(GEO_Vox::s_vox_xyzi == vox_chunk_child.chunk_id)
         {
@@ -236,6 +248,8 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
                 return GA_Detail::IOStatus(status);
             }
 
+            UTswap_int32(vox_voxel_count, vox_voxel_count);
+
             vox_voxels.setSize(vox_voxel_count);
             for(unsigned int idx = 0; idx < vox_voxel_count; ++idx)
             {
@@ -245,7 +259,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
                     return GA_Detail::IOStatus(status);
                 }
 
-                vox_voxels[idx] = vox_voxel;
+                vox_voxels(idx) = vox_voxel;
             }
         }
         else if(GEO_Vox::s_vox_rgba == vox_chunk_child.chunk_id)
@@ -259,20 +273,20 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
                     return GA_Detail::IOStatus(status);
                 }
 
-                vox_palette[idx] = vox_palette_color;
+                vox_palette(idx) = vox_palette_color;
             }
         }
         else
         {
             // We don't know this chunk, skip content in addition to skipping children.
-            if(!stream.seekg(vox_chunk_child.content_size, UT_IStream::UT_SEEK_BEG))
+            if(!stream.seekg(vox_chunk_child.content_size, UT_IStream::UT_SEEK_CUR))
             {
                 return GA_Detail::IOStatus(status);
             }
         }
 
         // Skip children.
-        if(!stream.seekg(vox_chunk_child.children_chunk_size, UT_IStream::UT_SEEK_BEG))
+        if(!stream.seekg(vox_chunk_child.children_chunk_size, UT_IStream::UT_SEEK_CUR))
         {
             return GA_Detail::IOStatus(status);
         }
@@ -286,7 +300,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         {
             GEO_VoxPaletteColor vox_palette_color;
             ConvertDefaultPaletteColor(GEO_Vox::s_vox_default_palette[idx], vox_palette_color);
-            vox_palette[idx] = vox_palette_color;
+            vox_palette(idx) = vox_palette_color;
         }
     }
 
@@ -315,10 +329,12 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         }
     }
 
+    /*
     if(!status)
     {
         detail->clearAndDestroy();
     }
+    */
 
     status = true;
     return GA_Detail::IOStatus(status);
@@ -340,15 +356,21 @@ GEO_Vox::ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk)
         return false;
     }
 
+    UTswap_int32(chunk.chunk_id, chunk.chunk_id);
+
     if(stream.bread(&chunk.content_size) != 1)
     {
         return false;
     }
 
+    UTswap_int32(chunk.content_size, chunk.content_size);
+
     if(stream.bread(&chunk.children_chunk_size) != 1)
     {
         return false;
     }
+
+    UTswap_int32(chunk.children_chunk_size, chunk.children_chunk_size);
 
     chunk.children_chunks_start = 3 * sizeof(unsigned int) + chunk.content_size * sizeof(unsigned char);
     chunk.children_chunks_end = chunk.children_chunks_start + chunk.children_chunk_size * sizeof(unsigned char);
