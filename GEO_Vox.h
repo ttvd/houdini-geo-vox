@@ -31,6 +31,21 @@ struct GEO_VoxPaletteColor
     };
 };
 
+struct GEO_VoxColor
+{
+    union
+    {
+        struct
+        {
+            float r;
+            float g;
+            float b;
+            float a;
+        };
+        float data[4];
+    };
+};
+
 struct GEO_VoxVoxel
 {
     unsigned char x;
@@ -69,6 +84,9 @@ class GEO_Vox : public GEO_IOTranslator
 
         //! Read a voxel entry.
         bool ReadVoxel(UT_IStream& stream, GEO_VoxVoxel& vox_voxel, unsigned int& bytes_read);
+
+        //! Convert palette to a color.
+        GEO_VoxColor ConvertPaletteColor(const GEO_VoxPaletteColor& palette_color) const;
 
     protected:
 

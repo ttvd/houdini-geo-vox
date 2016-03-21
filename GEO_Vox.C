@@ -9,6 +9,7 @@
 #include <UT/UT_IOTable.h>
 #include <UT/UT_Assert.h>
 #include <UT/UT_Endian.h>
+#include <SYS/SYS_Math.h>
 
 #define GEOVOX_MAKE_ID(A, B, C, D) ( A ) | ( B << 8 ) | ( C << 16 ) | ( D << 24 )
 
@@ -333,18 +334,27 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         UT_VoxelArrayWriteHandleF handle = volume->getVoxelWriteHandle();
         handle->size(vox_size_x, vox_size_y, vox_size_z);
 
+        // Initialize voxel volume space for this channel.
         for(unsigned int idx_z = 0; idx_z < vox_size_z; ++idx_z)
         {
             for(unsigned int idx_y = 0; idx_y < vox_size_y; ++idx_y)
             {
                 for(unsigned int idx_x = 0; idx_x < vox_size_x; ++idx_x)
                 {
-                    const GEO_VoxPaletteColor& vox_color =
-                        vox_palette((idx_z * vox_size_y * vox_size_x) + (idx_y * vox_size_x) + idx_x);
-
-                    handle->setValue(idx_x, idx_y, idx_z, vox_color.data_c[idx_channel]);
+                    handle->setValue(idx_x, idx_y, idx_z, 0.0f);
                 }
             }
+        }
+
+        // We need to overwrite values for all extracted voxels.
+        for(unsigned int idx_vox = 0, vox_entries = vox_voxels.entries(); idx_vox < vox_entries; ++idx_vox)
+        {
+            const GEO_VoxVoxel& vox_voxel = vox_voxels(idx_vox);
+            const GEO_VoxPaletteColor& vox_palette_color =
+                vox_palette((vox_voxel.z * vox_size_y * vox_size_x) + (vox_voxel.y * vox_size_x) + vox_voxel.x);
+            GEO_VoxColor vox_color = ConvertPaletteColor(vox_palette_color);
+
+            handle->setValue(vox_voxel.x, vox_voxel.y, vox_voxel.z, vox_color.data[idx_channel]);
         }
     }
 
@@ -440,6 +450,20 @@ void
 GEO_Vox::ConvertDefaultPaletteColor(unsigned int color, GEO_VoxPaletteColor& palette_color)
 {
     palette_color.data_u = color;
+}
+
+
+GEO_VoxColor
+GEO_Vox::ConvertPaletteColor(const GEO_VoxPaletteColor& palette_color) const
+{
+    GEO_VoxColor color;
+
+    color.r = SYSclamp(palette_color.r, 0, 255) / 255.0f;
+    color.g = SYSclamp(palette_color.g, 0, 255) / 255.0f;
+    color.b = SYSclamp(palette_color.b, 0, 255) / 255.0f;
+    color.a = SYSclamp(palette_color.a, 0, 255) / 255.0f;
+
+    return color;
 }
 
 
