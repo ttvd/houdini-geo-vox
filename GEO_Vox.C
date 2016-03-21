@@ -149,6 +149,7 @@ GA_Detail::IOStatus
 GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
 {
     bool status = false;
+    unsigned int vox_child_bytes_read = 0u;
 
     GU_Detail* gu_detail = dynamic_cast<GU_Detail*>(detail);
     UT_ASSERT(gu_detail);
@@ -183,7 +184,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
     }
 
     GEO_VoxChunk vox_chunk_main;
-    if(!ReadVoxChunk(stream, vox_chunk_main))
+    if(!ReadVoxChunk(stream, vox_chunk_main, vox_child_bytes_read))
     {
         return GA_Detail::IOStatus(status);
     }
@@ -207,11 +208,14 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
     UT_Array<GEO_VoxPaletteColor> vox_palette;
     UT_Array<GEO_VoxVoxel> vox_voxels;
 
+    // Reset bytes read.
+    vox_child_bytes_read = 0u;
+
     // We start reading chunks specified in the main chunk.
-    while(true)
+    while(vox_child_bytes_read != vox_chunk_main.children_chunk_size)
     {
         GEO_VoxChunk vox_chunk_child;
-        if(!ReadVoxChunk(stream, vox_chunk_child))
+        if(!ReadVoxChunk(stream, vox_chunk_child, vox_child_bytes_read))
         {
             return GA_Detail::IOStatus(status);
         }
@@ -224,6 +228,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
             }
 
             UTswap_int32(vox_size_x, vox_size_x);
+            vox_child_bytes_read += sizeof(unsigned int);
 
             if(stream.bread(&vox_size_y) != 1)
             {
@@ -231,6 +236,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
             }
 
             UTswap_int32(vox_size_y, vox_size_y);
+            vox_child_bytes_read += sizeof(unsigned int);
 
             if(stream.bread(&vox_size_z) != 1)
             {
@@ -238,6 +244,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
             }
 
             UTswap_int32(vox_size_z, vox_size_z);
+            vox_child_bytes_read += sizeof(unsigned int);
         }
         else if(GEO_Vox::s_vox_xyzi == vox_chunk_child.chunk_id)
         {
@@ -249,12 +256,13 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
             }
 
             UTswap_int32(vox_voxel_count, vox_voxel_count);
+            vox_child_bytes_read += sizeof(unsigned int);
 
             vox_voxels.setSize(vox_voxel_count);
             for(unsigned int idx = 0; idx < vox_voxel_count; ++idx)
             {
                 GEO_VoxVoxel vox_voxel;
-                if(!ReadVoxel(stream, vox_voxel))
+                if(!ReadVoxel(stream, vox_voxel, vox_child_bytes_read))
                 {
                     return GA_Detail::IOStatus(status);
                 }
@@ -268,7 +276,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
             for(unsigned int idx = 0; idx < GEO_Vox::s_vox_palette_size; ++idx)
             {
                 GEO_VoxPaletteColor vox_palette_color;
-                if(!ReadPaletteColor(stream, vox_palette_color))
+                if(!ReadPaletteColor(stream, vox_palette_color, vox_child_bytes_read))
                 {
                     return GA_Detail::IOStatus(status);
                 }
@@ -283,12 +291,19 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
             {
                 return GA_Detail::IOStatus(status);
             }
+
+            vox_child_bytes_read += vox_chunk_child.content_size;
         }
 
         // Skip children.
         if(!stream.seekg(vox_chunk_child.children_chunk_size, UT_IStream::UT_SEEK_CUR))
         {
             return GA_Detail::IOStatus(status);
+        }
+
+        if(vox_chunk_child.children_chunk_size > 0u)
+        {
+            vox_child_bytes_read += vox_chunk_child.children_chunk_size;
         }
     }
 
@@ -304,13 +319,17 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         }
     }
 
-    //UT_Matrix3 xform;
-    //xform.identity();
-    //xform.scale(vox_size_x * 0.5f, vox_size_y * 0.5f, vox_size_z * 0.5f);
+    UT_Matrix3 xform;
+    xform.identity();
+    xform.scale(vox_size_x * 0.5f, vox_size_y * 0.5f, vox_size_z * 0.5f);
+
+    // Houdini voxel space goes from -1 to 1, so size is 2 in each dimension.
 
     for(unsigned int idx_channel = 0; idx_channel < 4; ++idx_channel)
     {
         GU_PrimVolume* volume = (GU_PrimVolume*) GU_PrimVolume::build((GU_Detail*) detail);
+        volume->setTransform(xform);
+
         UT_VoxelArrayWriteHandleF handle = volume->getVoxelWriteHandle();
         handle->size(vox_size_x, vox_size_y, vox_size_z);
 
@@ -349,7 +368,7 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
 
 
 bool
-GEO_Vox::ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk)
+GEO_Vox::ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk, unsigned int& bytes_read)
 {
     if(stream.bread(&chunk.chunk_id) != 1)
     {
@@ -357,6 +376,7 @@ GEO_Vox::ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk)
     }
 
     UTswap_int32(chunk.chunk_id, chunk.chunk_id);
+    bytes_read += sizeof(unsigned int);
 
     if(stream.bread(&chunk.content_size) != 1)
     {
@@ -364,6 +384,7 @@ GEO_Vox::ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk)
     }
 
     UTswap_int32(chunk.content_size, chunk.content_size);
+    bytes_read += sizeof(unsigned int);
 
     if(stream.bread(&chunk.children_chunk_size) != 1)
     {
@@ -371,6 +392,7 @@ GEO_Vox::ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk)
     }
 
     UTswap_int32(chunk.children_chunk_size, chunk.children_chunk_size);
+    bytes_read += sizeof(unsigned int);
 
     chunk.children_chunks_start = 3 * sizeof(unsigned int) + chunk.content_size * sizeof(unsigned char);
     chunk.children_chunks_end = chunk.children_chunks_start + chunk.children_chunk_size * sizeof(unsigned char);
@@ -380,27 +402,35 @@ GEO_Vox::ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk)
 
 
 bool
-GEO_Vox::ReadPaletteColor(UT_IStream& stream, GEO_VoxPaletteColor& palette_color)
+GEO_Vox::ReadPaletteColor(UT_IStream& stream, GEO_VoxPaletteColor& palette_color, unsigned int& bytes_read)
 {
     if(stream.bread(&palette_color.r) != 1)
     {
         return false;
     }
 
+    bytes_read += sizeof(unsigned char);
+
     if(stream.bread(&palette_color.g) != 1)
     {
         return false;
     }
+
+    bytes_read += sizeof(unsigned char);
 
     if(stream.bread(&palette_color.b) != 1)
     {
         return false;
     }
 
+    bytes_read += sizeof(unsigned char);
+
     if(stream.bread(&palette_color.a) != 1)
     {
         return false;
     }
+
+    bytes_read += sizeof(unsigned char);
 
     return true;
 }
@@ -414,27 +444,35 @@ GEO_Vox::ConvertDefaultPaletteColor(unsigned int color, GEO_VoxPaletteColor& pal
 
 
 bool
-GEO_Vox::ReadVoxel(UT_IStream& stream, GEO_VoxVoxel& vox_voxel)
+GEO_Vox::ReadVoxel(UT_IStream& stream, GEO_VoxVoxel& vox_voxel, unsigned int& bytes_read)
 {
     if(stream.bread(&vox_voxel.x) != 1)
     {
         return false;
     }
 
+    bytes_read += sizeof(unsigned char);
+
     if(stream.bread(&vox_voxel.y) != 1)
     {
         return false;
     }
+
+    bytes_read += sizeof(unsigned char);
 
     if(stream.bread(&vox_voxel.z) != 1)
     {
         return false;
     }
 
+    bytes_read += sizeof(unsigned char);
+
     if(stream.bread(&vox_voxel.palette_index) != 1)
     {
         return false;
     }
+
+    bytes_read += sizeof(unsigned char);
 
     return true;
 }

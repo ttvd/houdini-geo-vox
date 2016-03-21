@@ -59,16 +59,16 @@ class GEO_Vox : public GEO_IOTranslator
     protected:
 
         //! Read a chunk.
-        bool ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk);
+        bool ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk, unsigned int& bytes_read);
 
         //! Read a palette entry.
-        bool ReadPaletteColor(UT_IStream& stream, GEO_VoxPaletteColor& palette_color);
+        bool ReadPaletteColor(UT_IStream& stream, GEO_VoxPaletteColor& palette_color, unsigned int& bytes_read);
 
         //! Convert palette entry from default palette value.
         void ConvertDefaultPaletteColor(unsigned int color, GEO_VoxPaletteColor& palette_color);
 
         //! Read a voxel entry.
-        bool ReadVoxel(UT_IStream& stream, GEO_VoxVoxel& vox_voxel);
+        bool ReadVoxel(UT_IStream& stream, GEO_VoxVoxel& vox_voxel, unsigned int& bytes_read);
 
     protected:
 
