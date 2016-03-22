@@ -19,7 +19,7 @@
 
 * Place a file SOP, select a .vox file.
 * This will create a Houdini RGBA volume.
-* Please see the example .hip file in example folder.
+* Please see the [example HIP file.](example/vox_loading.hip)
 
 ## License
 
