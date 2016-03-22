@@ -1,6 +1,5 @@
 #include "GEO_Vox.h"
 
-
 #include <UT/UT_DSOVersion.h>
 #include <GEO/GEO_Detail.h>
 #include <GEO/GEO_PrimPoly.h>
@@ -150,7 +149,6 @@ GEO_Vox::checkMagicNumber(unsigned magic)
 GA_Detail::IOStatus
 GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
 {
-    bool status = false;
     unsigned int vox_child_bytes_read = 0u;
 
     GU_Detail* gu_detail = dynamic_cast<GU_Detail*>(detail);
@@ -161,45 +159,52 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         unsigned int vox_magic_number = 0;
         if(stream.bread(&vox_magic_number) != 1)
         {
-            return GA_Detail::IOStatus(status);
+            detail->clearAndDestroy();
+            return GA_Detail::IOStatus(false);
         }
 
         UTswap_int32(vox_magic_number, vox_magic_number);
 
         if(!checkMagicNumber(vox_magic_number))
         {
-            return GA_Detail::IOStatus(status);
+            detail->clearAndDestroy();
+            return GA_Detail::IOStatus(false);
         }
     }
 
     unsigned int vox_version = 0;
     if(stream.bread(&vox_version) != 1)
     {
-        return GA_Detail::IOStatus(status);
+        detail->clearAndDestroy();
+        return GA_Detail::IOStatus(false);
     }
 
     UTswap_int32(vox_version, vox_version);
 
     if(GEO_Vox::s_vox_version != vox_version)
     {
-        return GA_Detail::IOStatus(status);
+        detail->clearAndDestroy();
+        return GA_Detail::IOStatus(false);
     }
 
     GEO_VoxChunk vox_chunk_main;
     if(!ReadVoxChunk(stream, vox_chunk_main, vox_child_bytes_read))
     {
-        return GA_Detail::IOStatus(status);
+        detail->clearAndDestroy();
+        return GA_Detail::IOStatus(false);
     }
 
     if(GEO_Vox::s_vox_main != vox_chunk_main.chunk_id)
     {
-        return GA_Detail::IOStatus(status);
+        detail->clearAndDestroy();
+        return GA_Detail::IOStatus(false);
     }
 
     // We skip the content of main chunk.
     if(!stream.seekg(vox_chunk_main.content_size, UT_IStream::UT_SEEK_CUR))
     {
-        return GA_Detail::IOStatus(status);
+        detail->clearAndDestroy();
+        return GA_Detail::IOStatus(false);
     }
 
     // Variables to read voxel data into.
@@ -219,14 +224,16 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         GEO_VoxChunk vox_chunk_child;
         if(!ReadVoxChunk(stream, vox_chunk_child, vox_child_bytes_read))
         {
-            return GA_Detail::IOStatus(status);
+            detail->clearAndDestroy();
+            return GA_Detail::IOStatus(false);
         }
 
         if(GEO_Vox::s_vox_size == vox_chunk_child.chunk_id)
         {
             if(stream.bread(&vox_size_x) != 1)
             {
-                return GA_Detail::IOStatus(status);
+                detail->clearAndDestroy();
+                return GA_Detail::IOStatus(false);
             }
 
             UTswap_int32(vox_size_x, vox_size_x);
@@ -234,7 +241,8 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
 
             if(stream.bread(&vox_size_y) != 1)
             {
-                return GA_Detail::IOStatus(status);
+                detail->clearAndDestroy();
+                return GA_Detail::IOStatus(false);
             }
 
             UTswap_int32(vox_size_y, vox_size_y);
@@ -242,7 +250,8 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
 
             if(stream.bread(&vox_size_z) != 1)
             {
-                return GA_Detail::IOStatus(status);
+                detail->clearAndDestroy();
+                return GA_Detail::IOStatus(false);
             }
 
             UTswap_int32(vox_size_z, vox_size_z);
@@ -254,7 +263,8 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
 
             if(stream.bread(&vox_voxel_count) != 1)
             {
-                return GA_Detail::IOStatus(status);
+                detail->clearAndDestroy();
+                return GA_Detail::IOStatus(false);
             }
 
             UTswap_int32(vox_voxel_count, vox_voxel_count);
@@ -266,7 +276,8 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
                 GEO_VoxVoxel vox_voxel;
                 if(!ReadVoxel(stream, vox_voxel, vox_child_bytes_read))
                 {
-                    return GA_Detail::IOStatus(status);
+                    detail->clearAndDestroy();
+                    return GA_Detail::IOStatus(false);
                 }
 
                 vox_voxels(idx) = vox_voxel;
@@ -280,7 +291,8 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
                 GEO_VoxPaletteColor vox_palette_color;
                 if(!ReadPaletteColor(stream, vox_palette_color, vox_child_bytes_read))
                 {
-                    return GA_Detail::IOStatus(status);
+                    detail->clearAndDestroy();
+                    return GA_Detail::IOStatus(false);
                 }
 
                 vox_palette(idx) = vox_palette_color;
@@ -291,7 +303,8 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
             // We don't know this chunk, skip content in addition to skipping children.
             if(!stream.seekg(vox_chunk_child.content_size, UT_IStream::UT_SEEK_CUR))
             {
-                return GA_Detail::IOStatus(status);
+                detail->clearAndDestroy();
+                return GA_Detail::IOStatus(false);
             }
 
             vox_child_bytes_read += vox_chunk_child.content_size;
@@ -300,7 +313,8 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         // Skip children.
         if(!stream.seekg(vox_chunk_child.children_chunk_size, UT_IStream::UT_SEEK_CUR))
         {
-            return GA_Detail::IOStatus(status);
+            detail->clearAndDestroy();
+            return GA_Detail::IOStatus(false);
         }
 
         if(vox_chunk_child.children_chunk_size > 0u)
@@ -324,8 +338,6 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
     UT_Matrix3 xform;
     xform.identity();
     xform.scale(vox_size_x * 0.5f, vox_size_y * 0.5f, vox_size_z * 0.5f);
-
-    // Houdini voxel space goes from -1 to 1, so size is 2 in each dimension.
 
     for(unsigned int idx_channel = 0; idx_channel < 4; ++idx_channel)
     {
@@ -351,33 +363,14 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         for(unsigned int idx_vox = 0, vox_entries = vox_voxels.entries(); idx_vox < vox_entries; ++idx_vox)
         {
             GEO_VoxVoxel vox_voxel = vox_voxels(idx_vox);
-            const GEO_VoxPaletteColor& vox_palette_color =
-                vox_palette((vox_voxel.z * vox_size_y * vox_size_x) + (vox_voxel.y * vox_size_x) + vox_voxel.x);
+            const GEO_VoxPaletteColor& vox_palette_color = vox_palette(vox_voxel.palette_index);
 
-            TransformToHoudiniCoordinates(vox_voxel);
-
-            if(IsPaletteColorEmpty(vox_palette_color))
-            {
-                int i = 53;
-            }
-            else
-            {
-                GEO_VoxColor vox_color = ConvertPaletteColor(vox_palette_color);
-                FixVolumeColor(vox_color);
-                handle->setValue(vox_voxel.x, vox_voxel.y, vox_voxel.z, vox_color.data[idx_channel]);
-            }
+            GEO_VoxColor vox_color = ConvertPaletteColor(vox_palette_color);
+            handle->setValue(vox_voxel.x, vox_voxel.y, vox_voxel.z, vox_color.data[idx_channel]);
         }
     }
 
-    /*
-    if(!status)
-    {
-        detail->clearAndDestroy();
-    }
-    */
-
-    status = true;
-    return GA_Detail::IOStatus(status);
+    return GA_Detail::IOStatus(true);
 }
 
 
@@ -482,38 +475,6 @@ bool
 GEO_Vox::IsPaletteColorEmpty(const GEO_VoxPaletteColor& palette_color) const
 {
     return 0x00000000 == palette_color.data_u;
-}
-
-
-void
-GEO_Vox::FixVolumeColor(GEO_VoxColor& color)
-{
-    if(!color.r)
-    {
-        color.r = 0.01f;
-    }
-
-    if(!color.g)
-    {
-        color.g = 0.01f;
-    }
-
-    if(!color.b)
-    {
-        color.b = 0.01f;
-    }
-
-    if(!color.a)
-    {
-        color.a = 0.01f;
-    }
-}
-
-
-void
-GEO_Vox::TransformToHoudiniCoordinates(GEO_VoxVoxel& voxel)
-{
-    UTswap(voxel.y, voxel.z);
 }
 
 
