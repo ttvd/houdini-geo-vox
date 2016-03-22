@@ -19,6 +19,7 @@ Houdini GEO node which lets you load [Magical Voxel](https://ephtracy.github.io/
 
 * Place a file SOP, select a .vox file.
 * This will create a Houdini RGBA volume.
+* Please see the example .hip file in example folder.
 
 ## License
 
