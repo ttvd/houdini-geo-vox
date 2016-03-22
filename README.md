@@ -13,8 +13,8 @@
 * Tested on OS X 10.11 and Houdini 15.
   * You would have to patch CMake file to get this building on Windows or Linux.
 * Define HOUDINI_VERSION env variable to be the version of Houdini 15 you wish to build against (for example "15.0.313").
-* Alternatively, you can have HFS env vatiable defined.
-* Generate build files from CMake.
+* Alternatively, you can have HFS env variable defined (set when you source houdini_setup).
+* Generate build files from CMake for your favorite build system.
 * Build the GEO Houdini dso (GEO_Vox.dylib or GEO_Vox.dll).
 * Place the dso in the appropriate Houdini dso folder.
   * On OS X this would be /Users/your_username/Library/Preferences/houdini/15.0/dso/
