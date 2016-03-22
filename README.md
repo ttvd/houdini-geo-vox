@@ -1,6 +1,6 @@
 # houdini-geo-vox
 
-[Houdini](http://www.sidefx.com/index.php) GEO node which lets you load [Magical Voxel](https://ephtracy.github.io/) Vox files.
+[Houdini](http://www.sidefx.com/index.php) GEO node which lets you load [MagicaVoxel](https://ephtracy.github.io/) Voxel Vox files.
 
 ![houdini-geo-vox screenshot](http://i.imgur.com/stmKung.png)
 
