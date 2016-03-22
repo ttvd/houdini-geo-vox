@@ -408,9 +408,6 @@ GEO_Vox::ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk, unsigned int& byt
     UTswap_int32(chunk.children_chunk_size, chunk.children_chunk_size);
     bytes_read += sizeof(unsigned int);
 
-    chunk.children_chunks_start = 3 * sizeof(unsigned int) + chunk.content_size * sizeof(unsigned char);
-    chunk.children_chunks_end = chunk.children_chunks_start + chunk.children_chunk_size * sizeof(unsigned char);
-
     return true;
 }
 

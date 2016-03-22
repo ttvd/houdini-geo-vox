@@ -11,8 +11,6 @@ struct GEO_VoxChunk
     unsigned int chunk_id;
     unsigned int content_size;
     unsigned int children_chunk_size;
-    unsigned int children_chunks_start;
-    unsigned int children_chunks_end;
 };
 
 struct GEO_VoxPaletteColor
