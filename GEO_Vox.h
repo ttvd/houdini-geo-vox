@@ -88,6 +88,15 @@ class GEO_Vox : public GEO_IOTranslator
         //! Convert palette to a color.
         GEO_VoxColor ConvertPaletteColor(const GEO_VoxPaletteColor& palette_color) const;
 
+        //! Return true if palette color corresponds to an empty voxel.
+        bool IsPaletteColorEmpty(const GEO_VoxPaletteColor& palette_color) const;
+
+        //! Fix up color so it is a valid volume value.
+        void FixVolumeColor(GEO_VoxColor& color);
+
+        //! Change voxel position according to Houdini coordinate system.
+        void TransformToHoudiniCoordinates(GEO_VoxVoxel& voxel);
+
     protected:
 
         //! Magic numbers used by parser.

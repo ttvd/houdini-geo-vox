@@ -9,6 +9,7 @@
 #include <UT/UT_IOTable.h>
 #include <UT/UT_Assert.h>
 #include <UT/UT_Endian.h>
+#include <UT/UT_Algorithm.h>
 #include <SYS/SYS_Math.h>
 
 #define GEOVOX_MAKE_ID(A, B, C, D) ( A ) | ( B << 8 ) | ( C << 16 ) | ( D << 24 )
@@ -349,12 +350,22 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         // We need to overwrite values for all extracted voxels.
         for(unsigned int idx_vox = 0, vox_entries = vox_voxels.entries(); idx_vox < vox_entries; ++idx_vox)
         {
-            const GEO_VoxVoxel& vox_voxel = vox_voxels(idx_vox);
+            GEO_VoxVoxel vox_voxel = vox_voxels(idx_vox);
             const GEO_VoxPaletteColor& vox_palette_color =
                 vox_palette((vox_voxel.z * vox_size_y * vox_size_x) + (vox_voxel.y * vox_size_x) + vox_voxel.x);
-            GEO_VoxColor vox_color = ConvertPaletteColor(vox_palette_color);
 
-            handle->setValue(vox_voxel.x, vox_voxel.y, vox_voxel.z, vox_color.data[idx_channel]);
+            TransformToHoudiniCoordinates(vox_voxel);
+
+            if(IsPaletteColorEmpty(vox_palette_color))
+            {
+                int i = 53;
+            }
+            else
+            {
+                GEO_VoxColor vox_color = ConvertPaletteColor(vox_palette_color);
+                FixVolumeColor(vox_color);
+                handle->setValue(vox_voxel.x, vox_voxel.y, vox_voxel.z, vox_color.data[idx_channel]);
+            }
         }
     }
 
@@ -464,6 +475,45 @@ GEO_Vox::ConvertPaletteColor(const GEO_VoxPaletteColor& palette_color) const
     color.a = SYSclamp(palette_color.a, 0, 255) / 255.0f;
 
     return color;
+}
+
+
+bool
+GEO_Vox::IsPaletteColorEmpty(const GEO_VoxPaletteColor& palette_color) const
+{
+    return 0x00000000 == palette_color.data_u;
+}
+
+
+void
+GEO_Vox::FixVolumeColor(GEO_VoxColor& color)
+{
+    if(!color.r)
+    {
+        color.r = 0.01f;
+    }
+
+    if(!color.g)
+    {
+        color.g = 0.01f;
+    }
+
+    if(!color.b)
+    {
+        color.b = 0.01f;
+    }
+
+    if(!color.a)
+    {
+        color.a = 0.01f;
+    }
+}
+
+
+void
+GEO_Vox::TransformToHoudiniCoordinates(GEO_VoxVoxel& voxel)
+{
+    UTswap(voxel.y, voxel.z);
 }
 
 
