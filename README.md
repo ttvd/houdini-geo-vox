@@ -22,7 +22,7 @@
 ## Usage
 
 * Place a file SOP, select a .vox file.
-* This will create a Houdini RGBA volume.
+* This will create a Houdini float4 volume, containing rgba data.
 * Please see the [example HIP file.](example/)
 
 ## License
