@@ -1,6 +1,6 @@
 # houdini-geo-vox
 
-Houdini GEO node which lets you load Magical Voxel Vox files.
+Houdini GEO node which lets you load [Magical Voxel](https://ephtracy.github.io/) Vox files.
 
 ![houdini-geo-vox screenshot](http://i.imgur.com/stmKung.png)
 
@@ -8,7 +8,7 @@ Houdini GEO node which lets you load Magical Voxel Vox files.
 
 * Tested on OS X 10.11 and Houdini 15.
   * You would have to patch CMake file to get this building on Windows or Linux.
-* Define HOUDINI_VERSION env variable to be the version of Houdini 15 you wish to build against (for example "15.0.389").
+* Define HOUDINI_VERSION env variable to be the version of Houdini 15 you wish to build against (for example "15.0.313").
 * Alternatively, you can have HFS env vatiable defined.
 * Generate build files from CMake.
 * Build the GEO Houdini dso (GEO_Vox.dylib or GEO_Vox.dll).
