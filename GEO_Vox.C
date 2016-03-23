@@ -335,6 +335,9 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         }
     }
 
+    detail->addStringTuple(GA_ATTRIB_PRIMITIVE, "name", 1);
+    GA_RWHandleS name_attrib(detail->findPrimitiveAttribute("name"));
+
     UT_Matrix3 xform;
     xform.identity();
     xform.scale(vox_size_x * 0.5f, vox_size_y * 0.5f, vox_size_z * 0.5f);
@@ -343,6 +346,39 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
     {
         GU_PrimVolume* volume = (GU_PrimVolume*) GU_PrimVolume::build((GU_Detail*) detail);
         volume->setTransform(xform);
+
+        switch(idx_channel)
+        {
+            case 0:
+            {
+                name_attrib.set(volume->getMapOffset(), "Cd.r");
+                break;
+            }
+
+            case 1:
+            {
+                name_attrib.set(volume->getMapOffset(), "Cd.g");
+                break;
+            }
+
+            case 2:
+            {
+                name_attrib.set(volume->getMapOffset(), "Cd.b");
+                break;
+            }
+
+            case 3:
+            {
+                name_attrib.set(volume->getMapOffset(), "Cd.a");
+                break;
+            }
+
+            default:
+            {
+                name_attrib.set(volume->getMapOffset(), "Cd");
+                break;
+            }
+        }
 
         UT_VoxelArrayWriteHandleF handle = volume->getVoxelWriteHandle();
         handle->size(vox_size_x, vox_size_y, vox_size_z);
