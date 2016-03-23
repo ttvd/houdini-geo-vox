@@ -65,6 +65,7 @@ if(APPLE)
 
     # Remove lib prefix on OS X.
     set(CMAKE_SHARED_MODULE_PREFIX "")
+    set(CMAKE_SHARED_LIBRARY_PREFIX "")
 
     # Set dylib prefix for modules on OS X.
     set(CMAKE_SHARED_MODULE_SUFFIX ".dylib")
