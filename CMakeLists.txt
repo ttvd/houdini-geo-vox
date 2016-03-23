@@ -31,8 +31,6 @@ endfunction()
 
 if(APPLE)
 
-    find_library(GEO_SLAPI_FRAMEWORK SketchUpAPI)
-
     if(DEFINED ENV{HOUDINI_VERSION})
         set(HOUDINI_GEOVOX_VERSION_FULL $ENV{HOUDINI_VERSION})
         set(HOUDINI_GEOVOX_HFS /Library/Frameworks/Houdini.Framework/Versions/${HOUDINI_GEOVOX_VERSION_FULL})
