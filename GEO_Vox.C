@@ -384,6 +384,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         handle->size(vox_size_x, vox_size_y, vox_size_z);
 
         // Initialize voxel volume space for this channel.
+        /*
         for(unsigned int idx_z = 0; idx_z < vox_size_z; ++idx_z)
         {
             for(unsigned int idx_y = 0; idx_y < vox_size_y; ++idx_y)
@@ -394,6 +395,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
                 }
             }
         }
+        */
 
         // We need to overwrite values for all extracted voxels.
         for(unsigned int idx_vox = 0, vox_entries = vox_voxels.entries(); idx_vox < vox_entries; ++idx_vox)
