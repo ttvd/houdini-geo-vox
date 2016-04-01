@@ -22,7 +22,8 @@
 ## Usage
 
 * Place a file SOP, select a .vox file.
-* This will create a Houdini float4 volume, containing rgba data.
+* This will create a Houdini volume, containing LUT color values data.
+* Use LUT loading SOP to further process the data.
 * Please see the [example HIP file.](example/)
 
 ## License
