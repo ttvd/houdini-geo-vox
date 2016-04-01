@@ -370,9 +370,9 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         if(!IsPaletteColorEmpty(vox_palette_color))
         {
 #ifdef GEOVOX_SWAP_HOUDINI_AXIS
-            handle->setValue(vox_voxel.x, vox_voxel.z, vox_voxel.y, (float) vox_palette_color.data_u);
+            handle->setValue(vox_voxel.x, vox_voxel.z, vox_voxel.y, (float) vox_voxel.palette_index);
 #else
-            handle->setValue(vox_voxel.x, vox_voxel.y, vox_voxel.z, (float) vox_palette_color.data_u);
+            handle->setValue(vox_voxel.x, vox_voxel.y, vox_voxel.z, (float) vox_voxel.palette_index);
 #endif
         }
     }
