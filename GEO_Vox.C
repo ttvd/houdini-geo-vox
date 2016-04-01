@@ -12,6 +12,7 @@
 #include <SYS/SYS_Math.h>
 
 #define GEOVOX_SWAP_HOUDINI_AXIS
+#define GEOVOX_VOLUME_NAME "color_lut"
 
 #define GEOVOX_MAKE_ID(A, B, C, D) ( A ) | ( B << 8 ) | ( C << 16 ) | ( D << 24 )
 
@@ -351,7 +352,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
 
     GU_PrimVolume* volume = (GU_PrimVolume*) GU_PrimVolume::build((GU_Detail*) detail);
     volume->setTransform(xform);
-    name_attrib.set(volume->getMapOffset(), "voxels");
+    name_attrib.set(volume->getMapOffset(), GEOVOX_VOLUME_NAME);
 
     UT_VoxelArrayWriteHandleF handle = volume->getVoxelWriteHandle();
 
