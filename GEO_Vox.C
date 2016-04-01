@@ -11,6 +11,8 @@
 #include <UT/UT_Algorithm.h>
 #include <SYS/SYS_Math.h>
 
+#define GEOVOX_SWAP_HOUDINI_AXIS
+
 #define GEOVOX_MAKE_ID(A, B, C, D) ( A ) | ( B << 8 ) | ( C << 16 ) | ( D << 24 )
 
 const unsigned int GEO_Vox::s_vox_magic = GEOVOX_MAKE_ID('V', 'O', 'X', ' ');
@@ -340,72 +342,35 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
 
     UT_Matrix3 xform;
     xform.identity();
+
+#ifdef GEOVOX_SWAP_HOUDINI_AXIS
+    xform.scale(vox_size_x * 0.5f, vox_size_z * 0.5f, vox_size_y * 0.5f);
+#else
     xform.scale(vox_size_x * 0.5f, vox_size_y * 0.5f, vox_size_z * 0.5f);
+#endif
 
-    for(unsigned int idx_channel = 0; idx_channel < 4; ++idx_channel)
+    GU_PrimVolume* volume = (GU_PrimVolume*) GU_PrimVolume::build((GU_Detail*) detail);
+    volume->setTransform(xform);
+    name_attrib.set(volume->getMapOffset(), "voxels");
+
+    UT_VoxelArrayWriteHandleF handle = volume->getVoxelWriteHandle();
+
+#ifdef GEOVOX_SWAP_HOUDINI_AXIS
+    handle->size(vox_size_x, vox_size_z, vox_size_y);
+#else
+    handle->size(vox_size_x, vox_size_y, vox_size_z);
+#endif
+
+    for(unsigned int idx_vox = 0, vox_entries = vox_voxels.entries(); idx_vox < vox_entries; ++idx_vox)
     {
-        GU_PrimVolume* volume = (GU_PrimVolume*) GU_PrimVolume::build((GU_Detail*) detail);
-        volume->setTransform(xform);
+        GEO_VoxVoxel vox_voxel = vox_voxels(idx_vox);
+        const GEO_VoxPaletteColor& vox_palette_color = vox_palette(vox_voxel.palette_index);
 
-        switch(idx_channel)
-        {
-            case 0:
-            {
-                name_attrib.set(volume->getMapOffset(), "Cd.r");
-                break;
-            }
-
-            case 1:
-            {
-                name_attrib.set(volume->getMapOffset(), "Cd.g");
-                break;
-            }
-
-            case 2:
-            {
-                name_attrib.set(volume->getMapOffset(), "Cd.b");
-                break;
-            }
-
-            case 3:
-            {
-                name_attrib.set(volume->getMapOffset(), "Cd.a");
-                break;
-            }
-
-            default:
-            {
-                name_attrib.set(volume->getMapOffset(), "Cd");
-                break;
-            }
-        }
-
-        UT_VoxelArrayWriteHandleF handle = volume->getVoxelWriteHandle();
-        handle->size(vox_size_x, vox_size_y, vox_size_z);
-
-        // Initialize voxel volume space for this channel.
-        /*
-        for(unsigned int idx_z = 0; idx_z < vox_size_z; ++idx_z)
-        {
-            for(unsigned int idx_y = 0; idx_y < vox_size_y; ++idx_y)
-            {
-                for(unsigned int idx_x = 0; idx_x < vox_size_x; ++idx_x)
-                {
-                    handle->setValue(idx_x, idx_y, idx_z, 0.0f);
-                }
-            }
-        }
-        */
-
-        // We need to overwrite values for all extracted voxels.
-        for(unsigned int idx_vox = 0, vox_entries = vox_voxels.entries(); idx_vox < vox_entries; ++idx_vox)
-        {
-            GEO_VoxVoxel vox_voxel = vox_voxels(idx_vox);
-            const GEO_VoxPaletteColor& vox_palette_color = vox_palette(vox_voxel.palette_index);
-
-            GEO_VoxColor vox_color = ConvertPaletteColor(vox_palette_color);
-            handle->setValue(vox_voxel.x, vox_voxel.y, vox_voxel.z, vox_color.data[idx_channel]);
-        }
+#ifdef GEOVOX_SWAP_HOUDINI_AXIS
+        handle->setValue(vox_voxel.x, vox_voxel.z, vox_voxel.y, (float) vox_palette_color.data_u);
+#else
+        handle->setValue(vox_voxel.x, vox_voxel.y, vox_voxel.z, (float) vox_palette_color.data_u);
+#endif
     }
 
     return GA_Detail::IOStatus(true);
