@@ -5,8 +5,8 @@
 ![houdini-geo-vox screenshot](http://i.imgur.com/stmKung.png)
 
 ## Binaries, Houdini 15
-* Mac OS X - Todo.
-* Windows - Todo.
+* [Mac OS X, Houdini 15.0.434](https://github.com/ttvd/houdini-geo-vox/releases/download/1.0/houdini.15.0.434.geo.vox.osx.rar)
+* [Windows, Houdini 15.0.440](https://github.com/ttvd/houdini-geo-vox/releases/download/1.0/houdini.15.0.440.geo.vox.win.rar)
 
 ## Building
 
