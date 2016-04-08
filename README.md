@@ -11,7 +11,7 @@
 ## Building
 
 * Tested on OS X 10.11 / Windows and Houdini 15.
-  * You would have to patch CMake file to get this building on Windows or Linux.
+  * You would have to patch CMake file to get this building on Linux.
 * Define HOUDINI_VERSION env variable to be the version of Houdini 15 you wish to build against (for example "15.0.313").
 * Alternatively, you can have HFS env variable defined (set when you source houdini_setup).
 * Generate build files from CMake for your favorite build system. For Windows builds use MSVC 2012.
