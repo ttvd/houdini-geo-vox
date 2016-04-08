@@ -13,7 +13,9 @@ if(COMPILER_SUPPORTS_CXX11)
 elseif(COMPILER_SUPPORTS_CXX0X)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 else()
-    message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
+	if(NOT WIN32)
+		message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
+	endif ()
 endif()
 
 # Function to extract Houdini version from a Version file.
@@ -34,7 +36,7 @@ if(APPLE)
     if(DEFINED ENV{HOUDINI_VERSION})
         set(HOUDINI_GEOVOX_VERSION_FULL $ENV{HOUDINI_VERSION})
         set(HOUDINI_GEOVOX_HFS /Library/Frameworks/Houdini.Framework/Versions/${HOUDINI_GEOVOX_VERSION_FULL})
-        set(_version_file /Library/Frameworks/Houdini.Framework/Versions/${HOUDINI_GEOVOX_VERSION_FULL}/Resources/toolkit/include/SYS/SYS_Version.h)
+        set(_version_file ${HOUDINI_GEOVOX_HFS}/Resources/toolkit/include/SYS/SYS_Version.h)
         if(NOT EXISTS ${_version_file})
             message(FATAL " Houdini ${HOUDINI_GEOVOX_VERSION_FULL} is not installed.")
         endif()
@@ -83,6 +85,7 @@ if(APPLE)
         -DGCC3
         "-arch x86_64"
         "-mmacosx-version-min=10.9"
+		-DUSE_PTHREADS
     )
 
     # Disable rpath.
@@ -91,7 +94,73 @@ if(APPLE)
     # Module creation flags.
     string(REPLACE "-Wl,-headerpad_max_install_names" "" CMAKE_SHARED_MODULE_CREATE_CXX_FLAGS "${CMAKE_SHARED_MODULE_CREATE_CXX_FLAGS}")
     set(CMAKE_SHARED_MODULE_CREATE_CXX_FLAGS "${CMAKE_SHARED_MODULE_CREATE_CXX_FLAGS} -flat_namespace -undefined suppress -arch x86_64 -fobjc-gc")
+	
+	set(HOUDINI_GEOVOX_LIBS
+		HoudiniUT
+		HoudiniGEO
+	)
 
+elseif (WIN32)
+	if(DEFINED ENV{HOUDINI_VERSION})
+        set(HOUDINI_GEOVOX_VERSION_FULL $ENV{HOUDINI_VERSION})
+        set(HOUDINI_GEOVOX_HFS "C:/Program Files/Side Effects Software/Houdini ${HOUDINI_GEOVOX_VERSION_FULL}")
+        set(_version_file ${HOUDINI_GEOVOX_HFS}/toolkit/include/SYS/SYS_Version.h)
+        if(NOT EXISTS ${_version_file})
+            message(FATAL " Houdini ${HOUDINI_GEOVOX_VERSION_FULL} is not installed.")
+        endif()
+    elseif(DEFINED ENV{HFS})
+        set(HOUDINI_GEOVOX_HFS $ENV{HFS})
+        extract_houdini_version(${HOUDINI_GEOVOX_HFS})
+    else()
+        message(FATAL " Please define either HOUDINI_VERSION or HFS variable.")
+    endif()
+	
+	string(REGEX MATCH "([0-9]+\.[0-9]+)" HOUDINI_GEOVOX_VERSION ${HOUDINI_GEOVOX_VERSION_FULL})
+    set(HOUDINI_GEOVOX_VERSION ${HOUDINI_GEOVOX_VERSION})
+
+    # Path to where DSOs are installed for this version.
+    set(HOUDINI_GEOVOX_DSO_PATH ${HOUDINI_GEOVOX_HFS}/bin)
+
+    set(HOUDINI_GEOVOX_INCLUDE_DIRECTORIES
+        ${HOUDINI_GEOVOX_HFS}/toolkit/include
+    )
+
+    set(HOUDINI_GEOVOX_LINK_DIRECTORIES
+        ${HOUDINI_GEOVOX_HFS}/custom/houdini/dsolib
+    )
+	
+	add_definitions(
+        -DVERSION=\"${HOUDINI_GEOVOX_VERSION_FULL}\"
+		-DWIN32
+		-DI386
+		-nologo
+		-TP
+		-Zc:forScope
+		-DSWAP_BITFIELDS
+		-D_WIN32_WINNT=0x0502
+		-DNOMINMAX
+		-DSTRICT
+		-DWIN32_LEAN_AND_MEAN
+		-D_USE_MATH_DEFINES
+		-D_CRT_SECURE_NO_DEPRECATE
+		-D_CRT_NONSTDC_NO_DEPRECATE 
+		-D_SCL_SECURE_NO_WARNINGS
+		-DBOOST_ALL_NO_LIB 
+		
+		-wd4355
+		-w14996
+		#-O2
+		-DNDEBUG
+		-MD
+		-EHsc
+		-GR
+		-bigobj
+	)
+	
+	set(HOUDINI_GEOVOX_LIBS
+    	${HOUDINI_GEOVOX_LINK_DIRECTORIES}/*.a
+		${HOUDINI_GEOVOX_LINK_DIRECTORIES}/*.lib
+	)
 else()
     message(FATAL_ERROR "Unsupported platform.")
 endif()
@@ -107,7 +176,6 @@ add_definitions(
     -DOPENCL_ENABLED=1
     -DOPENVDB_ENABLED=1
     -DENABLE_THREADS
-    -DUSE_PTHREADS
     -D_REENTRANT
     -D_FILE_OFFSET_BITS=64
 )
@@ -134,13 +202,13 @@ set(HOUDINI_GEOVOX_SOURCE
     GEO_Vox.C
 )
 
-set(HOUDINI_GEOVOX_LIBS
-    HoudiniUT
-    HoudiniGEO
-)
-
 add_definitions(
     -DUT_DSO_TAGINFO=\"3262197cbf1f501f2caa0ca8572890fb3e4b9bfcc021d8a873a8c3063d69ee812b972985db32267a5946addc2f8f31780eadf501ffc2e85149062ee263fe81be4baf508aff924994a3268d0847f848e6ab4e98a984ed956599\")
 
-add_library(GEO_Vox MODULE ${HOUDINI_GEOVOX_INCLUDE} ${HOUDINI_GEOVOX_SOURCE})
+if(APPLE)
+	add_library(GEO_Vox MODULE ${HOUDINI_GEOVOX_INCLUDE} ${HOUDINI_GEOVOX_SOURCE})
+else ()
+	add_library(GEO_Vox SHARED ${HOUDINI_GEOVOX_INCLUDE} ${HOUDINI_GEOVOX_SOURCE})
+endif()
+
 target_link_libraries(GEO_Vox ${HOUDINI_GEOVOX_LIBS})
