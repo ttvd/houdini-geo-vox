@@ -24,7 +24,8 @@
 
 * Place a file SOP, select a .vox file.
 * This will create a Houdini volume, containing LUT color values data.
-* Use LUT loading SOP to further process the data.
+* Use [LUT loading SOP](https://github.com/ttvd/houdini-sop-color-lut) to further process the data.
+* Also have a look at [Volume center points SOP](https://github.com/ttvd/houdini-sop-volume-center-points) .
 * Please see the [example HIP file.](example/)
 
 ## License
