@@ -4,6 +4,9 @@
 
 ![houdini-geo-vox screenshot](http://i.imgur.com/stmKung.png)
 
+## Binaries, Houdini 17.5
+* [Windows, Houdini 17.5.360](https://github.com/ttvd/houdini-geo-vox/releases/download/1.0.4/houdini.geo.vox.17.5.360.win.rar)
+
 ## Binaries, Houdini 16
 * [Windows, Houdini 16.0.557](https://github.com/ttvd/houdini-geo-vox/releases/download/1.0.3/houdini.geo.vox.16.0.557.win.rar)
 
@@ -13,15 +16,14 @@
 
 ## Building
 
-* Tested on OS X 10.11 / Windows and Houdini 15.
+* Tested on Windows and Houdini 17.5.
   * You would have to patch CMake file to get this building on Linux.
-* Define HOUDINI_VERSION env variable to be the version of Houdini 15 you wish to build against (for example "15.0.313").
+* Define HOUDINI_VERSION env variable to be the version of Houdini 17.5 you wish to build against (for example "17.5.360").
 * Alternatively, you can have HFS env variable defined (set when you source houdini_setup).
 * Generate build files from CMake for your favorite build system. For Windows builds use MSVC 2012.
 * Build the GEO Houdini dso (GEO_Vox.dylib or GEO_Vox.dll).
 * Place the dso in the appropriate Houdini dso folder.
-  * On OS X this would be /Users/your_username/Library/Preferences/houdini/15.0/dso/
-  * On Windows this would be C:\Users\your_username\Documents\houdini15.0\dso
+  * On Windows this would be C:\Users\your_username\Documents\houdini17.5\dso
 
 ## Usage
 
