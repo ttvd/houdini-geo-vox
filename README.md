@@ -4,6 +4,9 @@
 
 ![houdini-geo-vox screenshot](http://i.imgur.com/stmKung.png)
 
+## Binaries, Houdini 18.0
+* [Windows, Houdini 18.0.348](https://github.com/ttvd/houdini-geo-vox/releases/download/1.0.5/houdini.geo.vox.18.0.348.win.rar)
+
 ## Binaries, Houdini 17.5
 * [Windows, Houdini 17.5.360](https://github.com/ttvd/houdini-geo-vox/releases/download/1.0.4/houdini.geo.vox.17.5.360.win.rar)
 
