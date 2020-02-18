@@ -157,6 +157,9 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
     GU_Detail* gu_detail = dynamic_cast<GU_Detail*>(detail);
     UT_ASSERT(gu_detail);
 
+    /*
+    // Not sure what's going on since H18, seems to be consuming magic, but not flaging it as such.
+
     if(!ate_magic)
     {
         unsigned int vox_magic_number = 0;
@@ -174,6 +177,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
             return GA_Detail::IOStatus(false);
         }
     }
+    */
 
     unsigned int vox_version = 0;
     if(stream.bread(&vox_version) != 1)

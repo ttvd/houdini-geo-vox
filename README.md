@@ -16,14 +16,13 @@
 
 ## Building
 
-* Tested on Windows and Houdini 17.5.
-  * You would have to patch CMake file to get this building on Linux.
-* Define HOUDINI_VERSION env variable to be the version of Houdini 17.5 you wish to build against (for example "17.5.360").
-* Alternatively, you can have HFS env variable defined (set when you source houdini_setup).
-* Generate build files from CMake for your favorite build system. For Windows builds use MSVC 2012.
-* Build the GEO Houdini dso (GEO_Vox.dylib or GEO_Vox.dll).
-* Place the dso in the appropriate Houdini dso folder.
-  * On Windows this would be C:\Users\your_username\Documents\houdini17.5\dso
+* Tested on Windows and Houdini 18.0
+    * Generate a Visual Studio solution using premake:
+        * premake5 --houdini-version=18.0.348 vs2017
+    * Build the GEO Houdini dso (GEO_Vox.dylib or GEO_Vox.dll).
+    * Place the dso in the appropriate Houdini dso folder.
+        * On Windows this would be C:\Users\your_username\Documents\houdini17.5\dso
+        * Or your HOUDINI_DSO_PATH
 
 ## Usage
 
