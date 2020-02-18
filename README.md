@@ -22,9 +22,9 @@
 * Tested on Windows and Houdini 18.0
     * Generate a Visual Studio solution using premake:
         * premake5 --houdini-version=18.0.348 vs2017
-    * Build the GEO Houdini dso (GEO_Vox.dylib or GEO_Vox.dll).
+    * Build the GEO Houdini dso GEO_Vox.dylib.
     * Place the dso in the appropriate Houdini dso folder.
-        * On Windows this would be C:\Users\your_username\Documents\houdini17.5\dso
+        * On Windows this would be C:\Users\your_username\Documents\houdini18.0\dso
         * Or your HOUDINI_DSO_PATH
 
 ## Usage
