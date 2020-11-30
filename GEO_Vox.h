@@ -55,22 +55,19 @@ struct GEO_VoxVoxel
 class GEO_Vox : public GEO_IOTranslator
 {
     public:
-
         GEO_Vox();
         GEO_Vox(const GEO_Vox& ref);
-        virtual ~GEO_Vox();
+        ~GEO_Vox() override;
 
     public:
-
-        virtual GEO_IOTranslator* duplicate() const;
-        virtual const char* formatName() const;
-        virtual int checkExtension(const char* name);
-        virtual int checkMagicNumber(unsigned magic);
-        virtual GA_Detail::IOStatus fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic);
-        virtual GA_Detail::IOStatus fileSave(const GEO_Detail* detail, std::ostream& stream);
+        GEO_IOTranslator* duplicate() const override;
+        const char* formatName() const override;
+        int checkExtension(const char* name) override;
+        int checkMagicNumber(unsigned magic) override;
+        GA_Detail::IOStatus fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic) override;
+        GA_Detail::IOStatus fileSave(const GEO_Detail* detail, std::ostream& stream) override;
 
     protected:
-
         //! Read a chunk.
         bool ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk, unsigned int& bytes_read);
 
