@@ -70,6 +70,8 @@ class GEO_Vox : public GEO_IOTranslator
     protected:
         //! Read a chunk.
         bool ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk, unsigned int& bytes_read);
+        //! Write a chunk
+        bool WriteVoxChunk(std::ostream& stream, GEO_VoxChunk& chunk, unsigned int& bytes_written);
 
         //! Read a palette entry.
         bool ReadPaletteColor(UT_IStream& stream, GEO_VoxPaletteColor& palette_color, unsigned int& bytes_read);

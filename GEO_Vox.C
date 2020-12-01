@@ -11,6 +11,8 @@
 #include <UT/UT_Algorithm.h>
 #include <SYS/SYS_Math.h>
 
+//#define GEOVOX_FILE_SAVE
+#define GEOVOX_VERBOSE
 #define GEOVOX_SWAP_HOUDINI_AXIS
 #define GEOVOX_VOLUME_NAME "color_lut"
 
@@ -169,7 +171,6 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         }
 
         UTswap_int32(vox_magic_number, vox_magic_number);
-
         if(!checkMagicNumber(vox_magic_number))
         {
             detail->clearAndDestroy();
@@ -185,7 +186,9 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
     }
 
     UTswap_int32(vox_version, vox_version);
-
+#ifdef GEOVOX_VERBOSE
+    std::cerr << "vox_version: " << vox_version << "\n";
+#endif
     if(GEO_Vox::s_vox_version != vox_version)
     {
         detail->clearAndDestroy();
@@ -193,6 +196,230 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
     }
 
     GEO_VoxChunk vox_chunk_main;
+    if(!ReadVoxChunk(stream, vox_chunk_main, vox_child_bytes_read))
+    {
+        detail->clearAndDestroy();
+        return GA_Detail::IOStatus(false);
+    }
+#ifdef GEOVOX_VERBOSE
+    std::cerr << "vox_chunk_main.chunk_id: " << (char*)&vox_chunk_main.chunk_id << "\n";
+    std::cerr << "vox_chunk_main.children_chunk_size: " << vox_chunk_main.children_chunk_size << "\n";
+    std::cerr << "vox_chunk_main.content_size: " << vox_chunk_main.content_size << "\n";
+#endif
+    if(GEO_Vox::s_vox_main != vox_chunk_main.chunk_id)
+    {
+        detail->clearAndDestroy();
+        return GA_Detail::IOStatus(false);
+    }
+
+    // We skip the content of main chunk.
+    if(!stream.seekg(vox_chunk_main.content_size, UT_IStream::UT_SEEK_CUR))
+    {
+        detail->clearAndDestroy();
+        return GA_Detail::IOStatus(false);
+    }
+
+    // Variables to read voxel data into.
+    unsigned int vox_size_x = 0u;
+    unsigned int vox_size_y = 0u;
+    unsigned int vox_size_z = 0u;
+
+    UT_Array<GEO_VoxPaletteColor> vox_palette;
+    UT_Array<GEO_VoxVoxel> vox_voxels;
+
+    // Reset bytes read.
+    vox_child_bytes_read = 0u;
+
+    // We start reading chunks specified in the main chunk.
+    while(vox_child_bytes_read != vox_chunk_main.children_chunk_size)
+    {
+        GEO_VoxChunk vox_chunk_child;
+        if(!ReadVoxChunk(stream, vox_chunk_child, vox_child_bytes_read))
+        {
+            detail->clearAndDestroy();
+            return GA_Detail::IOStatus(false);
+        }
+
+        if(GEO_Vox::s_vox_size == vox_chunk_child.chunk_id)
+        {
+            if(stream.bread(&vox_size_x) != 1)
+            {
+                detail->clearAndDestroy();
+                return GA_Detail::IOStatus(false);
+            }
+
+            UTswap_int32(vox_size_x, vox_size_x);
+            vox_child_bytes_read += sizeof(unsigned int);
+
+            if(stream.bread(&vox_size_y) != 1)
+            {
+                detail->clearAndDestroy();
+                return GA_Detail::IOStatus(false);
+            }
+
+            UTswap_int32(vox_size_y, vox_size_y);
+            vox_child_bytes_read += sizeof(unsigned int);
+
+            if(stream.bread(&vox_size_z) != 1)
+            {
+                detail->clearAndDestroy();
+                return GA_Detail::IOStatus(false);
+            }
+
+            UTswap_int32(vox_size_z, vox_size_z);
+            vox_child_bytes_read += sizeof(unsigned int);
+        }
+        else if(GEO_Vox::s_vox_xyzi == vox_chunk_child.chunk_id)
+        {
+            unsigned int vox_voxel_count = 0u;
+
+            if(stream.bread(&vox_voxel_count) != 1)
+            {
+                detail->clearAndDestroy();
+                return GA_Detail::IOStatus(false);
+            }
+
+            UTswap_int32(vox_voxel_count, vox_voxel_count);
+            vox_child_bytes_read += sizeof(unsigned int);
+#ifdef GEOVOX_VERBOSE
+            std::cerr << "vox_size_: " << vox_size_x << ", " << vox_size_y << ", " << vox_size_z << "\n";
+            std::cerr << "vox_voxel_count: " << vox_voxel_count << "\n";
+#endif
+
+            vox_voxels.setSize(vox_voxel_count);
+            for(unsigned int idx = 0; idx < vox_voxel_count; ++idx)
+            {
+                GEO_VoxVoxel vox_voxel;
+                if(!ReadVoxel(stream, vox_voxel, vox_child_bytes_read))
+                {
+                    detail->clearAndDestroy();
+                    return GA_Detail::IOStatus(false);
+                }
+
+                vox_voxels(idx) = vox_voxel;
+            }
+        }
+        else if(GEO_Vox::s_vox_rgba == vox_chunk_child.chunk_id)
+        {
+            vox_palette.setSize(GEO_Vox::s_vox_palette_size);
+            for(unsigned int idx = 0; idx < GEO_Vox::s_vox_palette_size; ++idx)
+            {
+                GEO_VoxPaletteColor vox_palette_color;
+                if(!ReadPaletteColor(stream, vox_palette_color, vox_child_bytes_read))
+                {
+                    detail->clearAndDestroy();
+                    return GA_Detail::IOStatus(false);
+                }
+
+                vox_palette(idx) = vox_palette_color;
+            }
+        }
+        else
+        {
+            // We don't know this chunk, skip content in addition to skipping children.
+            if(!stream.seekg(vox_chunk_child.content_size, UT_IStream::UT_SEEK_CUR))
+            {
+                detail->clearAndDestroy();
+                return GA_Detail::IOStatus(false);
+            }
+
+            vox_child_bytes_read += vox_chunk_child.content_size;
+        }
+
+        // Skip children.
+        if(!stream.seekg(vox_chunk_child.children_chunk_size, UT_IStream::UT_SEEK_CUR))
+        {
+            detail->clearAndDestroy();
+            return GA_Detail::IOStatus(false);
+        }
+
+        if(vox_chunk_child.children_chunk_size > 0u)
+        {
+            vox_child_bytes_read += vox_chunk_child.children_chunk_size;
+        }
+    }
+
+    // If there was no palette, use default.
+    if(0 == vox_palette.size())
+    {
+        vox_palette.setSize(GEO_Vox::s_vox_palette_size);
+        for(unsigned int idx = 0; idx < GEO_Vox::s_vox_palette_size; ++idx)
+        {
+            GEO_VoxPaletteColor vox_palette_color;
+            ConvertDefaultPaletteColor(GEO_Vox::s_vox_default_palette[idx], vox_palette_color);
+            vox_palette(idx) = vox_palette_color;
+        }
+    }
+
+    detail->addStringTuple(GA_ATTRIB_PRIMITIVE, "name", 1);
+    GA_RWHandleS name_attrib(detail->findPrimitiveAttribute("name"));
+
+    UT_Matrix3 xform;
+    xform.identity();
+
+#ifdef GEOVOX_SWAP_HOUDINI_AXIS
+    xform.scale(vox_size_x * 0.5f, vox_size_z * 0.5f, vox_size_y * 0.5f);
+#else
+    xform.scale(vox_size_x * 0.5f, vox_size_y * 0.5f, vox_size_z * 0.5f);
+#endif
+
+    GU_PrimVolume* volume = (GU_PrimVolume*) GU_PrimVolume::build((GU_Detail*) detail);
+    volume->setTransform(xform);
+    name_attrib.set(volume->getMapOffset(), GEOVOX_VOLUME_NAME);
+
+    UT_VoxelArrayWriteHandleF handle = volume->getVoxelWriteHandle();
+
+#ifdef GEOVOX_SWAP_HOUDINI_AXIS
+    handle->size(vox_size_x, vox_size_z, vox_size_y);
+#else
+    handle->size(vox_size_x, vox_size_y, vox_size_z);
+#endif
+
+    for(unsigned int idx_vox = 0, vox_entries = vox_voxels.entries(); idx_vox < vox_entries; ++idx_vox)
+    {
+        GEO_VoxVoxel vox_voxel = vox_voxels(idx_vox);
+        const GEO_VoxPaletteColor& vox_palette_color = vox_palette(vox_voxel.palette_index);
+
+        if(!IsPaletteColorEmpty(vox_palette_color))
+        {
+#ifdef GEOVOX_SWAP_HOUDINI_AXIS
+            handle->setValue(vox_voxel.x, vox_voxel.z, vox_voxel.y, (float) vox_voxel.palette_index);
+#else
+            handle->setValue(vox_voxel.x, vox_voxel.y, vox_voxel.z, (float) vox_voxel.palette_index);
+#endif
+        }
+    }
+
+    return GA_Detail::IOStatus(true);
+}
+
+
+GA_Detail::IOStatus
+GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
+{
+#ifndef GEOVOX_FILE_SAVE
+    return GA_Detail::IOStatus(false);
+#else
+    unsigned int vox_child_bytes_read = 0u;
+
+    const auto* gu_detail = dynamic_cast<const GU_Detail*>(detail);
+    UT_ASSERT(gu_detail);
+
+    unsigned int vox_magic_number = GEO_Vox::s_vox_magic;
+    UTswap_int32(vox_magic_number, vox_magic_number);
+    if(stream.write((char*)(&vox_magic_number), 4).fail())
+    {
+            return GA_Detail::IOStatus(false);
+    }
+
+    unsigned int vox_version = GEO_Vox::s_vox_version;
+    UTswap_int32(vox_version, vox_version);
+    if(stream.write((char*)(&vox_version), 4).fail())
+    {
+        return GA_Detail::IOStatus(false);
+    }
+
+    GEO_VoxChunk vox_chunk_main{};
     if(!ReadVoxChunk(stream, vox_chunk_main, vox_child_bytes_read))
     {
         detail->clearAndDestroy();
@@ -380,13 +607,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
     }
 
     return GA_Detail::IOStatus(true);
-}
-
-
-GA_Detail::IOStatus
-GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
-{
-    return GA_Detail::IOStatus(false);
+#endif
 }
 
 
@@ -420,6 +641,41 @@ GEO_Vox::ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk, unsigned int& byt
     return true;
 }
 
+
+bool
+GEO_Vox::WriteVoxChunk(std::ostream& stream, GEO_VoxChunk& chunk, unsigned int& bytes_writtem)
+{
+#ifndef GEOVOX_FILE_SAVE
+    return false;
+#else
+    unsigned int chunk_id = chunk.chunk_id;
+    UTswap_int32(chunk_id, chunk_id);
+    if(stream.write((char*)&chunk_id, 4).fail())
+    {
+        return false;
+    }
+
+    bytes_read += sizeof(unsigned int);
+
+    if(stream.bread(&chunk.content_size) != 1)
+    {
+        return false;
+    }
+
+    UTswap_int32(chunk.content_size, chunk.content_size);
+    bytes_read += sizeof(unsigned int);
+
+    if(stream.bread(&chunk.children_chunk_size) != 1)
+    {
+        return false;
+    }
+
+    UTswap_int32(chunk.children_chunk_size, chunk.children_chunk_size);
+    bytes_read += sizeof(unsigned int);
+
+    return true;
+#endif
+}
 
 bool
 GEO_Vox::ReadPaletteColor(UT_IStream& stream, GEO_VoxPaletteColor& palette_color, unsigned int& bytes_read)
