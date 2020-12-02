@@ -15,5 +15,9 @@ add_library(GEO_Vox SHARED
 target_link_libraries( GEO_Vox  Houdini )
 houdini_configure_target( GEO_Vox )
 
+add_executable(test
+        test.cpp)
 
+target_link_libraries( test  Houdini )
+houdini_configure_target( test )
 
