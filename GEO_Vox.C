@@ -242,6 +242,12 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
 
         if(GEO_Vox::s_vox_size == vox_chunk_child.chunk_id)
         {
+#ifdef GEOVOX_VERBOSE
+            std::cerr << "Reading: " << (char*)&GEO_Vox::s_vox_size << "\n";
+            std::cerr << "vox_chunk_child.chunk_id: " << (char*)&vox_chunk_child.chunk_id << "\n";
+            std::cerr << "vox_chunk_child.children_chunk_size: " << vox_chunk_child.children_chunk_size << "\n";
+            std::cerr << "vox_chunk_child.content_size: " << vox_chunk_child.content_size << "\n";
+#endif
             if(stream.bread(&vox_size_x) != 1)
             {
                 detail->clearAndDestroy();
@@ -271,6 +277,12 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         }
         else if(GEO_Vox::s_vox_xyzi == vox_chunk_child.chunk_id)
         {
+#ifdef GEOVOX_VERBOSE
+            std::cerr << "Reading: " << (char*)&GEO_Vox::s_vox_xyzi << "\n";
+            std::cerr << "vox_chunk_child.chunk_id: " << (char*)&vox_chunk_child.chunk_id << "\n";
+            std::cerr << "vox_chunk_child.children_chunk_size: " << vox_chunk_child.children_chunk_size << "\n";
+            std::cerr << "vox_chunk_child.content_size: " << vox_chunk_child.content_size << "\n";
+#endif
             unsigned int vox_voxel_count = 0u;
 
             if(stream.bread(&vox_voxel_count) != 1)
@@ -301,6 +313,12 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         }
         else if(GEO_Vox::s_vox_rgba == vox_chunk_child.chunk_id)
         {
+#ifdef GEOVOX_VERBOSE
+            std::cerr << "Reading: " << (char*)&GEO_Vox::s_vox_rgba << "\n";
+            std::cerr << "vox_chunk_child.chunk_id: " << (char*)&vox_chunk_child.chunk_id << "\n";
+            std::cerr << "vox_chunk_child.children_chunk_size: " << vox_chunk_child.children_chunk_size << "\n";
+            std::cerr << "vox_chunk_child.content_size: " << vox_chunk_child.content_size << "\n";
+#endif
             vox_palette.setSize(GEO_Vox::s_vox_palette_size);
             for(unsigned int idx = 0; idx < GEO_Vox::s_vox_palette_size; ++idx)
             {
@@ -316,6 +334,9 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         }
         else
         {
+#ifdef GEOVOX_VERBOSE
+            std::cerr << "Ignoring at: " << vox_child_bytes_read << "bytes\n";
+#endif
             // We don't know this chunk, skip content in addition to skipping children.
             if(!stream.seekg(vox_chunk_child.content_size, UT_IStream::UT_SEEK_CUR))
             {
