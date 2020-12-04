@@ -2,6 +2,7 @@
 
 #include <GEO/GEO_IOTranslator.h>
 #include <UT/UT_String.h>
+#include <unordered_map>
 
 class GEO_PrimPoly;
 class GU_Detail;
@@ -54,6 +55,8 @@ struct GEO_VoxVoxel
 
 class GEO_Vox : public GEO_IOTranslator
 {
+    using Palette = std::unordered_map<unsigned,  GEO_VoxPaletteColor>;
+
     public:
         GEO_Vox();
         GEO_Vox(const GEO_Vox& ref);
@@ -70,8 +73,6 @@ class GEO_Vox : public GEO_IOTranslator
     protected:
         //! Read a chunk.
         bool ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk, unsigned int& bytes_read);
-        //! Write a chunk
-        bool WriteVoxChunk(std::ostream& stream, GEO_VoxChunk& chunk, unsigned int& bytes_written);
 
         //! Read a palette entry.
         bool ReadPaletteColor(UT_IStream& stream, GEO_VoxPaletteColor& palette_color, unsigned int& bytes_read);
@@ -87,6 +88,16 @@ class GEO_Vox : public GEO_IOTranslator
 
         //! Return true if palette color corresponds to an empty voxel.
         bool IsPaletteColorEmpty(const GEO_VoxPaletteColor& palette_color) const;
+
+        //! Compute main chunk size from geometry present in GU_Detail
+        int32_t ComputeChunkSize(const GU_Detail& gdp, int numVoxels, bool isRgb) const;
+
+        //! Compute voxel size
+        //! TODO: This is only valid for pure packed prims gdp
+        static UT_Vector3I ComputeVoxelResolution(const GU_Detail& gdp, int numVoxels, bool isRgb) ;
+
+        //! Create Palette from attribute
+        void CreateColorPalette(const GU_Detail& gdp, Palette &palette, UT_ExintArray &palette_indices) const;
 
     protected:
 

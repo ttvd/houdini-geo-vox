@@ -4,6 +4,7 @@
 #include <UT/UT_Assert.h>
 
 #include <iostream>
+#include <fstream>
 
 
 int main(int argc, const char* argv[])
@@ -24,6 +25,11 @@ int main(int argc, const char* argv[])
         }
         return 1;
     }
+    // We need this to ensure only packed prims are present
+    // TODO: Extent to check if there are volume prims also and handle it
+    // TODO: Extend to support also points (without packed cubes)
+    UT_ASSERT_P(gdp.getNumPrimitives() == gdp.getNumPoints());
+
 
     const GU_PrimPacked *cube = UTverify_cast<const GU_PrimPacked *>(gdp.getPrimitive(0));
 
@@ -42,7 +48,6 @@ int main(int argc, const char* argv[])
     if (color_attr_h.isInvalid()) {
         std::cerr << "No color attribute found.\n";
     }
-
 
     GA_Offset ptoff;
     GA_FOR_ALL_PTOFF(&gdp, ptoff)
