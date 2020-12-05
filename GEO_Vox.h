@@ -90,11 +90,11 @@ class GEO_Vox : public GEO_IOTranslator
         bool IsPaletteColorEmpty(const GEO_VoxPaletteColor& palette_color) const;
 
         //! Compute main chunk size from geometry present in GU_Detail
-        int32_t ComputeChunkSize(const GU_Detail& gdp, int numVoxels, bool isRgb) const;
+        static uint32_t ComputeChunkSize(const GU_Detail& gdp, int numVoxels, bool isRgb);
 
         //! Compute voxel size
         //! TODO: This is only valid for pure packed prims gdp
-        static UT_Vector3I ComputeVoxelResolution(const GU_Detail& gdp, int numVoxels, bool isRgb) ;
+        static UT_Vector3I ComputeVoxelResolution(const GU_Detail& gdp, int numVoxels, bool isRgb);
 
         //! Create Palette from attribute
         void CreateColorPalette(const GU_Detail& gdp, Palette &palette, UT_ExintArray &palette_indices) const;
