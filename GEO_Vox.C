@@ -527,7 +527,7 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
             const uint8_t y = SYSfloor(pos.y()+vox_size.y()/2.0f);
             const uint8_t z = SYSfloor(pos.z()+vox_size.z()/2.0f);
             // FIXME: We could use CreateColorPalette to make constant index instead of this:
-            const uint8_t i = palette_indices[ptnum] ? isRgb : 1;
+            const uint8_t i = isRgb ? palette_indices[ptnum] : 1;
             const GEO_VoxVoxel voxel{x, z, y, i};
             write_error |= stream.write((char*)&voxel, 4).fail();
         }
