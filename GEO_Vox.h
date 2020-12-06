@@ -2,6 +2,7 @@
 
 #include <GEO/GEO_IOTranslator.h>
 #include <UT/UT_String.h>
+#include <unordered_set>
 
 class GEO_PrimPoly;
 class GU_Detail;
@@ -52,10 +53,15 @@ struct GEO_VoxVoxel
     unsigned char palette_index;
 };
 
+namespace Rgb {
+    auto Hash = [](const UT_Vector3I &color) { return color.hash(); };
+    auto Equal = [](const UT_Vector3I &c1, const UT_Vector3I &c2) { return c1.hash() == c2.hash(); };
+    using Palette = std::unordered_set<UT_Vector3I, decltype(Hash), decltype(Equal)>;
+    using Indices = std::vector<int>;
+}
+
 class GEO_Vox : public GEO_IOTranslator
 {
-    using Palette = std::vector<std::array<uint8_t, 4>>;
-
     public:
         GEO_Vox();
         GEO_Vox(const GEO_Vox& ref);
@@ -96,10 +102,9 @@ class GEO_Vox : public GEO_IOTranslator
         static UT_Vector3I ComputeVoxelResolution(const GU_Detail& gdp, int numVoxels, bool isRgb);
 
         //! Create Palette from attribute
-        static void CreateColorPalette(const GU_Detail& gdp, Palette &palette, UT_ExintArray &palette_indices);
+        static void CreateColorPalette(const GU_Detail& gdp, Rgb::Palette &palette, Rgb::Indices &indices);
 
     protected:
-
         //! Magic numbers used by parser.
         static const unsigned int s_vox_magic;
         static const unsigned int s_vox_main;

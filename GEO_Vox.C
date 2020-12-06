@@ -431,11 +431,9 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
     UT_ASSERT(gu_detail);
 
     bool isRgb = false;
-    auto palette = Palette{};
 
     if (detail->findFloatTuple(GA_ATTRIB_POINT, "Cd") != nullptr)
     {
-        palette.reserve(256);
         isRgb = true;
     }
 
@@ -458,101 +456,95 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
     }
 
     // Main chunk : 'MAIN' | children size (4bytes) | content size (4 bytes)
-    {
-        const uint32_t numVoxels = detail->getNumPoints();
-        const uint32_t children_chunk_size = ComputeChunkSize(*gu_detail, numVoxels, isRgb);
-        bool write_error = false;
-        write_error |= stream.write((char*)&GEO_Vox::s_vox_main, 4).fail();
-        write_error |= stream.write((char*)&zero_size, sizeof(uint32_t)).fail();
-        write_error |= stream.write((char*)&children_chunk_size, sizeof(uint32_t)).fail();
+    const uint32_t numVoxels = detail->getNumPoints();
+    const uint32_t children_chunk_size = ComputeChunkSize(*gu_detail, numVoxels, isRgb);
+    bool write_error = false;
+    write_error |= stream.write((char*)&GEO_Vox::s_vox_main, 4).fail();
+    write_error |= stream.write((char*)&zero_size, sizeof(uint32_t)).fail();
+    write_error |= stream.write((char*)&children_chunk_size, sizeof(uint32_t)).fail();
 
-        if (write_error)
-        {
-            return GA_Detail::IOStatus(false);
-        }
+    if (write_error)
+    {
+        return GA_Detail::IOStatus(false);
     }
 
     // Size chunk: 'SIZE' | children size (4 bytes) | content size (12 bytes) | 3x4 bytes
+    const uint32_t twelve_zero_size[2] = {12u, 0};
+    write_error |= stream.write((char*)&GEO_Vox::s_vox_size, 4).fail();
+    write_error |= stream.write(reinterpret_cast<const char*>(&twelve_zero_size), sizeof(int32_t)*2).fail();
+    const auto vox_size = ComputeVoxelResolution(*gu_detail, 0, 0);
+    const int vox_size_int[3] = {static_cast<int>(vox_size.x()), static_cast<int>(vox_size.z()),
+                                 static_cast<int>(vox_size.y())};
+    write_error |= stream.write((char*)&vox_size_int, 4*3).fail();
+
+    if (write_error)
     {
-        bool write_error = false;
-        write_error |= stream.write((char*)&GEO_Vox::s_vox_size, 4).fail();
-        const uint32_t twelve_zero_size[2] = {12u, 0};
-        write_error |= stream.write(reinterpret_cast<const char*>(&twelve_zero_size), sizeof(int32_t)*2).fail();
-
-        const auto vox_size = ComputeVoxelResolution(*gu_detail, 0, 0);
-        const int vox_size_int[3] = {static_cast<int>(vox_size.x()),
-                                     static_cast<int>(vox_size.z()),
-                                     static_cast<int>(vox_size.y())};
-
-        write_error |= stream.write((char*)&vox_size_int, 4*3).fail();
-
-        if (write_error)
-        {
-            return GA_Detail::IOStatus(false);
-        }
+        return GA_Detail::IOStatus(false);
     }
 
     // Chunk XYZI: 'XYZI' | children size = 0 | content size = numvoxel (4B) + numvoxel*4
+    const uint32_t content_size = numVoxels * sizeof(uint32_t) + sizeof(uint32_t);
+    write_error |= stream.write((char*)&GEO_Vox::s_vox_xyzi, 4).fail();
+    write_error |= stream.write(reinterpret_cast<const char*>(&content_size), sizeof(uint32_t)).fail();
+    write_error |= stream.write(reinterpret_cast<const char*>(&zero_size), sizeof(uint32_t)).fail();
+    write_error |= stream.write(reinterpret_cast<const char*>(&numVoxels), sizeof(uint32_t)).fail();
+
+    // Palette generation from points' color
+    Rgb::Indices indices{0,0};
+    Rgb::Palette palette{0, Rgb::Hash, Rgb::Equal};
+
+    if (isRgb)
     {
-        const uint32_t numVoxels = detail->getNumPoints();
-        const uint32_t content_size = numVoxels * sizeof(uint32_t) + sizeof(uint32_t);
+        palette.reserve(256);
+        indices.resize(detail->getNumPoints());
+        CreateColorPalette(*gu_detail, palette, indices);
+    }
 
-        bool write_error = false;
-        write_error |= stream.write((char*)&GEO_Vox::s_vox_xyzi, 4).fail();
-        write_error |= stream.write(reinterpret_cast<const char*>(&content_size), sizeof(uint32_t)).fail();
-        write_error |= stream.write(reinterpret_cast<const char*>(&zero_size), sizeof(uint32_t)).fail();
-        write_error |= stream.write(reinterpret_cast<const char*>(&numVoxels), sizeof(uint32_t)).fail();
+    GA_Offset ptoff;
+    GA_FOR_ALL_PTOFF(detail, ptoff)
+    {
+        const auto pos = detail->getPos3(ptoff);
+        const auto ptnum = detail->pointIndex(ptoff);
+        const uint8_t x = SYSfloor(pos.x()+vox_size.x()/2.0f);
+        const uint8_t y = SYSfloor(pos.y()+vox_size.y()/2.0f);
+        const uint8_t z = SYSfloor(pos.z()+vox_size.z()/2.0f);
+        // FIXME: We could use CreateColorPalette to make constant index instead of this:
+        const uint8_t i = isRgb ? static_cast<uint8_t>(indices[ptnum]) : 1;
+        const GEO_VoxVoxel voxel{x, z, y, i};
+        write_error |= stream.write((char*)&voxel, 4).fail();
+    }
 
-        // Palette generation from points' color
-        UT_ExintArray palette_indices{};
-        palette_indices.bumpSize(detail->getNumPoints());
-
-        if (isRgb)
-        {
-            CreateColorPalette(*gu_detail, palette, palette_indices);
-        }
-
-        const auto vox_size = ComputeVoxelResolution(*gu_detail, 0, 0);
-        GA_Offset ptoff;
-        GA_FOR_ALL_PTOFF(detail, ptoff)
-        {
-            const auto pos = detail->getPos3(ptoff);
-            const auto ptnum = detail->pointIndex(ptoff);
-            const uint8_t x = SYSfloor(pos.x()+vox_size.x()/2.0f);
-            const uint8_t y = SYSfloor(pos.y()+vox_size.y()/2.0f);
-            const uint8_t z = SYSfloor(pos.z()+vox_size.z()/2.0f);
-            // FIXME: We could use CreateColorPalette to make constant index instead of this:
-            const uint8_t i = isRgb ? static_cast<uint8_t>(palette_indices[ptnum]) : 1;
-            const GEO_VoxVoxel voxel{x, z, y, i};
-            write_error |= stream.write((char*)&voxel, 4).fail();
-        }
-
-        if (write_error)
-        {
-            return GA_Detail::IOStatus(false);
-        }
+    if (write_error)
+    {
+        return GA_Detail::IOStatus(false);
     }
 
     // Chunk RGBA: 'RGBA' | children size = 0 (4B) | content size = 1024 == 4*256
     if (isRgb)
     {
         const uint32_t rgb_size = GEO_Vox::s_vox_palette_size * sizeof(uint32_t);
-        bool write_error = false;
         write_error |= stream.write((char*)&GEO_Vox::s_vox_rgba, 4).fail();
         write_error |= stream.write((char*)&rgb_size, sizeof(uint32_t)).fail();
         write_error |= stream.write(reinterpret_cast<const char*>(&zero_size), sizeof(uint32_t)).fail();
 
         // FIXME: copy default palette to missing places in our palette
-        if (true)
+        if (false)
         {
             write_error |= stream.write((char*)&GEO_Vox::s_vox_default_palette, rgb_size).fail();
         }
-        else {
+        else
+        {
             for (const auto &color: palette)
             {
-                write_error = stream.write((char*)&color, 4).fail();
+                const uint8_t charcolor[4] = {static_cast<uint8_t>(color.r()), static_cast<uint8_t>(color.g()),
+                                              static_cast<uint8_t>(color.b()), 1};
+                write_error |= stream.write((char*)&charcolor, 4).fail();
+#ifdef GEOVOX_VERBOSE
+                std::cerr << (int)charcolor[0] << "," << (int)charcolor[1] << "," << (int)charcolor[2] << "\n";
+#endif
             }
-
+            write_error |= stream.write((char*)(&GEO_Vox::s_vox_default_palette+palette.size()),
+                                        rgb_size-palette.size()).fail();
         }
 
         if (write_error)
@@ -719,44 +711,21 @@ GEO_Vox::ReadVoxel(UT_IStream& stream, GEO_VoxVoxel& vox_voxel, unsigned int& by
     return true;
 }
 
-void GEO_Vox::CreateColorPalette(const GU_Detail &gdp, Palette &palette, UT_ExintArray &palette_indices)
+void GEO_Vox::CreateColorPalette(const GU_Detail &gdp, Rgb::Palette &palette, Rgb::Indices &indices)
 {
     GA_ROHandleV3 col_attr_h(gdp.findFloatTuple(GA_ATTRIB_POINT, "Cd"));
     UT_ASSERT_P(col_attr_h.isValid());
 
-    using ColorMap = std::unordered_map<int, int>;
-    auto color_map = ColorMap{};
-
-    int palette_index = 0;
     GA_Offset ptoff;
-
     GA_FOR_ALL_PTOFF(&gdp, ptoff)
     {
-        const auto ptidx = gdp.pointIndex(ptoff);
-        const auto color = col_attr_h.get(ptoff);
-        const auto colorI= UT_Vector3I(SYSclamp(color*256.0, UT_Vector3F(0.0), UT_Vector3F(255.0)));
-        const auto hash  = colorI.hash();
-        auto color_map_it = color_map.find(hash);
-        if (color_map_it == color_map.end() && color_map.size() < GEO_Vox::s_vox_palette_size)
-        {
-            const std::array<uint8_t, 4> rgba{static_cast<uint8_t>(colorI.x()),
-                                              static_cast<uint8_t>(colorI.y()),
-                                              static_cast<uint8_t>(colorI.z()),
-                                              1};// TODO alpha?
-            palette.push_back(rgba);
-            color_map.insert(std::make_pair(hash, ++palette_index));
-#ifdef GEOVOX_VERBOSE
-            std::cerr << "Palette size: " <<  palette.size() << std::endl;
-#endif
-        }
-        else
-        {
-            palette_index = color_map_it->second;
-        }
-#ifdef GEOVOX_VERBOSE
-        std::cerr << palette_index << ",";
-#endif
+        const auto point_color   = col_attr_h.get(ptoff);
+        const auto color_integer = UT_Vector3I(SYSclamp(point_color*256.0, UT_Vector3F(0.0), UT_Vector3F(255.0)));
+        const auto palette_iter  = palette.insert(palette.begin(), color_integer);
+        const auto palette_index = std::distance(palette_iter, palette.end());
         // NOTE: We take last one if color hasn't been found but palette exceeded its size
-        palette_indices[ptidx] =  palette_index < 255 ? palette_index : 255;
+        const auto point_index = gdp.pointIndex(ptoff);
+        UT_ASSERT_P(point_index < indices.size());
+        indices[point_index] = palette_index < 255 ? palette_index : 255;
     }
 }
