@@ -378,42 +378,77 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         }
     }
 
-    detail->addStringTuple(GA_ATTRIB_PRIMITIVE, "name", 1);
-    GA_RWHandleS name_attrib(detail->findPrimitiveAttribute("name"));
+    const bool import_as_volume = getenv("GEOVOX_IMPORT_AS_VOLUME") != nullptr;
 
-    UT_Matrix3 xform;
-    xform.identity();
-
-#ifdef GEOVOX_SWAP_HOUDINI_AXIS
-    xform.scale(vox_size_x * 0.5f, vox_size_z * 0.5f, vox_size_y * 0.5f);
-#else
-    xform.scale(vox_size_x * 0.5f, vox_size_y * 0.5f, vox_size_z * 0.5f);
-#endif
-
-    GU_PrimVolume* volume = (GU_PrimVolume*) GU_PrimVolume::build((GU_Detail*) detail);
-    volume->setTransform(xform);
-    name_attrib.set(volume->getMapOffset(), GEOVOX_VOLUME_NAME);
-
-    UT_VoxelArrayWriteHandleF handle = volume->getVoxelWriteHandle();
-
-#ifdef GEOVOX_SWAP_HOUDINI_AXIS
-    handle->size(vox_size_x, vox_size_z, vox_size_y);
-#else
-    handle->size(vox_size_x, vox_size_y, vox_size_z);
-#endif
-
-    for(unsigned int idx_vox = 0, vox_entries = vox_voxels.entries(); idx_vox < vox_entries; ++idx_vox)
+    if (!import_as_volume)
     {
-        GEO_VoxVoxel vox_voxel = vox_voxels(idx_vox);
-        const GEO_VoxPaletteColor& vox_palette_color = vox_palette(vox_voxel.palette_index);
-
-        if(!IsPaletteColorEmpty(vox_palette_color))
-        {
-#ifdef GEOVOX_SWAP_HOUDINI_AXIS
-            handle->setValue(vox_voxel.x, vox_voxel.z, vox_voxel.y, (float) vox_voxel.palette_index);
-#else
-            handle->setValue(vox_voxel.x, vox_voxel.y, vox_voxel.z, (float) vox_voxel.palette_index);
+#ifdef GEOVOX_VERBOSE
+        std::cerr << "Importing as points \n";
 #endif
+        detail->appendPointBlock(vox_voxels.size());
+        GA_RWHandleV3 color_attr_h(detail->createTupleAttribute(GA_ATTRIB_POINT, "Cd", GA_STORE_REAL32, 3));
+        GA_RWHandleI palette_attr_h(
+                detail->createTupleAttribute(GA_ATTRIB_POINT, "vox_palette_index", GA_STORE_INT32, 1));
+        UT_ASSERT_P(color_attr_h.isValid());
+        UT_ASSERT_P(palette_attr_h.isValid());
+        GA_Offset ptoff;
+        GA_FOR_ALL_PTOFF(detail, ptoff) {
+                const auto point_index = detail->pointIndex(ptoff);
+                const auto pos = UT_Vector3F(vox_voxels(point_index).x, vox_voxels(point_index).z,
+                                             vox_voxels(point_index).y);
+                GEO_VoxVoxel &vox_voxel = vox_voxels(point_index);
+                detail->setPos3(ptoff, pos);
+                const GEO_VoxPaletteColor &vox_palette_color = vox_palette(vox_voxel.palette_index);
+                auto color = UT_Vector3F(static_cast<int>(vox_palette_color.r), static_cast<int>(vox_palette_color.g),
+                                         static_cast<int>(vox_palette_color.b));
+                color /= 256.f;
+                color_attr_h.set(ptoff, color);
+                palette_attr_h.set(ptoff, (int) vox_voxel.palette_index);
+            }
+        UT_BoundingBox bbox; detail->getBBox(&bbox);
+        UT_Matrix4F xform4; xform4.identity();
+        xform4.translate(-bbox.center());
+        detail->transform(xform4);
+    }
+    else
+    {
+        detail->addStringTuple(GA_ATTRIB_PRIMITIVE, "name", 1);
+        GA_RWHandleS name_attrib(detail->findPrimitiveAttribute("name"));
+
+        UT_Matrix3 xform;
+        xform.identity();
+
+        #ifdef GEOVOX_SWAP_HOUDINI_AXIS
+        xform.scale(vox_size_x * 0.5f, vox_size_z * 0.5f, vox_size_y * 0.5f);
+        #else
+        xform.scale(vox_size_x * 0.5f, vox_size_y * 0.5f, vox_size_z * 0.5f);
+        #endif
+
+        GU_PrimVolume* volume = (GU_PrimVolume*) GU_PrimVolume::build((GU_Detail*) detail);
+        volume->setTransform(xform);
+        name_attrib.set(volume->getMapOffset(), GEOVOX_VOLUME_NAME);
+
+        UT_VoxelArrayWriteHandleF handle = volume->getVoxelWriteHandle();
+
+        #ifdef GEOVOX_SWAP_HOUDINI_AXIS
+        handle->size(vox_size_x, vox_size_z, vox_size_y);
+        #else
+        handle->size(vox_size_x, vox_size_y, vox_size_z);
+        #endif
+
+        for(unsigned int idx_vox = 0, vox_entries = vox_voxels.entries(); idx_vox < vox_entries; ++idx_vox)
+        {
+            GEO_VoxVoxel vox_voxel = vox_voxels(idx_vox);
+            const GEO_VoxPaletteColor& vox_palette_color = vox_palette(vox_voxel.palette_index);
+
+            if(!IsPaletteColorEmpty(vox_palette_color))
+            {
+                #ifdef GEOVOX_SWAP_HOUDINI_AXIS
+                handle->setValue(vox_voxel.x, vox_voxel.z, vox_voxel.y, (float) vox_voxel.palette_index);
+                #else
+                handle->setValue(vox_voxel.x, vox_voxel.y, vox_voxel.z, (float) vox_voxel.palette_index);
+                #endif
+            }
         }
     }
 
