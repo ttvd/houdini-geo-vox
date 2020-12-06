@@ -2,7 +2,6 @@
 
 #include <GEO/GEO_IOTranslator.h>
 #include <UT/UT_String.h>
-#include <unordered_map>
 
 class GEO_PrimPoly;
 class GU_Detail;
@@ -55,7 +54,7 @@ struct GEO_VoxVoxel
 
 class GEO_Vox : public GEO_IOTranslator
 {
-    using Palette = std::unordered_map<unsigned,  GEO_VoxPaletteColor>;
+    using Palette = std::vector<std::array<uint8_t, 4>>;
 
     public:
         GEO_Vox();
@@ -97,7 +96,7 @@ class GEO_Vox : public GEO_IOTranslator
         static UT_Vector3I ComputeVoxelResolution(const GU_Detail& gdp, int numVoxels, bool isRgb);
 
         //! Create Palette from attribute
-        void CreateColorPalette(const GU_Detail& gdp, Palette &palette, UT_ExintArray &palette_indices) const;
+        static void CreateColorPalette(const GU_Detail& gdp, Palette &palette, UT_ExintArray &palette_indices);
 
     protected:
 

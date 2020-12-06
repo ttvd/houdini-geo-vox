@@ -13,6 +13,8 @@
 #include <GU/GU_PrimPacked.h>
 #include <OpenImageIO/hash.h>
 
+#include <unordered_map>
+
 #define GEOVOX_FILE_SAVE
 #define GEOVOX_VERBOSE
 #define GEOVOX_SWAP_HOUDINI_AXIS
@@ -321,7 +323,6 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
             std::cerr << "vox_chunk_child.chunk_id: " << (char*)&vox_chunk_child.chunk_id << "\n";
             std::cerr << "vox_chunk_child.content_size: " << vox_chunk_child.content_size << "\n";
             std::cerr << "vox_chunk_child.children_chunk_size: " << vox_chunk_child.children_chunk_size << "\n";
-            std::cerr << "Reading at idx: ";
 #endif
             vox_palette.setSize(GEO_Vox::s_vox_palette_size);
             for(unsigned int idx = 0; idx < GEO_Vox::s_vox_palette_size; ++idx)
@@ -329,13 +330,9 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
                 GEO_VoxPaletteColor vox_palette_color;
                 if(!ReadPaletteColor(stream, vox_palette_color, vox_child_bytes_read))
                 {
-                    std::cerr << "READNIG ERROR AT idx: " << idx << "\n";
                     detail->clearAndDestroy();
                     return GA_Detail::IOStatus(false);
                 }
-#ifdef GEOVOX_VERBOSE
-            std::cerr << idx << ", ";
-#endif
 
                 vox_palette(idx) = vox_palette_color;
             }
@@ -430,21 +427,17 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
 #ifndef GEOVOX_FILE_SAVE
     return GA_Detail::IOStatus(false);
 #else
-
     const auto* gu_detail = dynamic_cast<const GU_Detail*>(detail);
     UT_ASSERT(gu_detail);
 
-    GA_ROHandleV3 color_attr_h(detail->findFloatTuple(GA_ATTRIB_POINT, "Cd"));
-
     bool isRgb = false;
     auto palette = Palette{};
-    if (color_attr_h.isValid())
+
+    if (detail->findFloatTuple(GA_ATTRIB_POINT, "Cd") != nullptr)
     {
         palette.reserve(256);
         isRgb = true;
     }
-    // FIXME: Currently fails on palette output, so bellow statement makes sense
-//    isRgb = false;
 
     // For now only packed prims ie. #points == #prims
     // TODO: Extent to check if there are volume prims also and handle it
@@ -513,10 +506,12 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
         // Palette generation from points' color
         UT_ExintArray palette_indices{};
         palette_indices.bumpSize(detail->getNumPoints());
+
         if (isRgb)
         {
             CreateColorPalette(*gu_detail, palette, palette_indices);
         }
+
         const auto vox_size = ComputeVoxelResolution(*gu_detail, 0, 0);
         GA_Offset ptoff;
         GA_FOR_ALL_PTOFF(detail, ptoff)
@@ -527,7 +522,7 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
             const uint8_t y = SYSfloor(pos.y()+vox_size.y()/2.0f);
             const uint8_t z = SYSfloor(pos.z()+vox_size.z()/2.0f);
             // FIXME: We could use CreateColorPalette to make constant index instead of this:
-            const uint8_t i = isRgb ? palette_indices[ptnum] : 1;
+            const uint8_t i = isRgb ? static_cast<uint8_t>(palette_indices[ptnum]) : 1;
             const GEO_VoxVoxel voxel{x, z, y, i};
             write_error |= stream.write((char*)&voxel, 4).fail();
         }
@@ -541,26 +536,30 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
     // Chunk RGBA: 'RGBA' | children size = 0 (4B) | content size = 1024 == 4*256
     if (isRgb)
     {
-        const uint32_t rgb_size = 1024;// GEO_Vox::s_vox_palette_size * sizeof(uint32_t);
+        const uint32_t rgb_size = GEO_Vox::s_vox_palette_size * sizeof(uint32_t);
         bool write_error = false;
         write_error |= stream.write((char*)&GEO_Vox::s_vox_rgba, 4).fail();
         write_error |= stream.write((char*)&rgb_size, sizeof(uint32_t)).fail();
         write_error |= stream.write(reinterpret_cast<const char*>(&zero_size), sizeof(uint32_t)).fail();
 
-        write_error |= stream.write((char*)&GEO_Vox::s_vox_default_palette, rgb_size).fail();
+        // FIXME: copy default palette to missing places in our palette
+        if (true)
+        {
+            write_error |= stream.write((char*)&GEO_Vox::s_vox_default_palette, rgb_size).fail();
+        }
+        else {
+            for (const auto &color: palette)
+            {
+                write_error = stream.write((char*)&color, 4).fail();
+            }
 
-//        for (auto it = palette.begin(); it != palette.end(); ++it)
-//        {
-//            const GEO_VoxPaletteColor color = it->second;
-//            write_error = stream.write((char*)&color.data_c, 4).fail();
-//        }
+        }
 
         if (write_error)
         {
             return GA_Detail::IOStatus(false);
         }
     }
-
     return GA_Detail::IOStatus(true);
 #endif
 }
@@ -720,36 +719,44 @@ GEO_Vox::ReadVoxel(UT_IStream& stream, GEO_VoxVoxel& vox_voxel, unsigned int& by
     return true;
 }
 
-void GEO_Vox::CreateColorPalette(const GU_Detail &gdp, Palette &palette, UT_ExintArray &palette_indices) const
+void GEO_Vox::CreateColorPalette(const GU_Detail &gdp, Palette &palette, UT_ExintArray &palette_indices)
 {
     GA_ROHandleV3 col_attr_h(gdp.findFloatTuple(GA_ATTRIB_POINT, "Cd"));
     UT_ASSERT_P(col_attr_h.isValid());
 
+    using ColorMap = std::unordered_map<int, int>;
+    auto color_map = ColorMap{};
+
+    int palette_index = 0;
     GA_Offset ptoff;
+
     GA_FOR_ALL_PTOFF(&gdp, ptoff)
     {
         const auto ptidx = gdp.pointIndex(ptoff);
-
         const auto color = col_attr_h.get(ptoff);
         const auto colorI= UT_Vector3I(SYSclamp(color*256.0, UT_Vector3F(0.0), UT_Vector3F(255.0)));
         const auto hash  = colorI.hash();
-
-        auto palette_iter = palette.find(hash);
-        if (palette_iter == palette.end() && palette.size() < GEO_Vox::s_vox_palette_size)
+        auto color_map_it = color_map.find(hash);
+        if (color_map_it == color_map.end() && color_map.size() < GEO_Vox::s_vox_palette_size)
         {
-            const auto rgba = GEO_VoxPaletteColor{{{static_cast<unsigned char>(colorI.x()),
-                                                    static_cast<unsigned char>(colorI.x()),
-                                                    static_cast<unsigned char>(colorI.x()),
-                                                   1}}}; // TODO alpha?
-
-            std::pair<Palette::iterator, bool> result = palette.insert(std::make_pair(hash, rgba));
-            palette_iter = result.first;
+            const std::array<uint8_t, 4> rgba{static_cast<uint8_t>(colorI.x()),
+                                              static_cast<uint8_t>(colorI.y()),
+                                              static_cast<uint8_t>(colorI.z()),
+                                              1};// TODO alpha?
+            palette.push_back(rgba);
+            color_map.insert(std::make_pair(hash, ++palette_index));
+#ifdef GEOVOX_VERBOSE
+            std::cerr << "Palette size: " <<  palette.size() << std::endl;
+#endif
         }
-
-        const uint palette_index = std::distance(palette_iter, palette.begin());
+        else
+        {
+            palette_index = color_map_it->second;
+        }
+#ifdef GEOVOX_VERBOSE
+        std::cerr << palette_index << ",";
+#endif
         // NOTE: We take last one if color hasn't been found but palette exceeded its size
-        palette_indices[ptidx] = palette_index ? palette_index < 255 : 255;
+        palette_indices[ptidx] =  palette_index < 255 ? palette_index : 255;
     }
-
-
 }
