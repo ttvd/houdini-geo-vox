@@ -387,16 +387,16 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
 #endif
         detail->appendPointBlock(vox_voxels.size());
         GA_RWHandleV3 color_attr_h(detail->createTupleAttribute(GA_ATTRIB_POINT, "Cd", GA_STORE_REAL32, 3));
-        GA_RWHandleI palette_attr_h(
-                detail->createTupleAttribute(GA_ATTRIB_POINT, "vox_palette_index", GA_STORE_INT32, 1));
+        GA_RWHandleI palette_attr_h(detail->createTupleAttribute(GA_ATTRIB_POINT,
+                                                                 "vox_palette_index", GA_STORE_INT32, 1));
         UT_ASSERT_P(color_attr_h.isValid());
         UT_ASSERT_P(palette_attr_h.isValid());
         GA_Offset ptoff;
-        GA_FOR_ALL_PTOFF(detail, ptoff) {
+        GA_FOR_ALL_PTOFF(detail, ptoff)
+        {
                 const auto point_index = detail->pointIndex(ptoff);
-                const auto pos = UT_Vector3F(vox_voxels(point_index).x, vox_voxels(point_index).z,
-                                             vox_voxels(point_index).y);
-                GEO_VoxVoxel &vox_voxel = vox_voxels(point_index);
+                const GEO_VoxVoxel &vox_voxel = vox_voxels(point_index);
+                const auto pos = UT_Vector3F(vox_voxel.x, vox_voxel.z, vox_voxel.y);
                 detail->setPos3(ptoff, pos);
                 const GEO_VoxPaletteColor &vox_palette_color = vox_palette(vox_voxel.palette_index);
                 auto color = UT_Vector3F(static_cast<int>(vox_palette_color.r), static_cast<int>(vox_palette_color.g),
@@ -544,7 +544,7 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
         const uint8_t y = SYSfloor(pos.y()+vox_size.y()/2.0f);
         const uint8_t z = SYSfloor(pos.z()+vox_size.z()/2.0f);
         // FIXME: We could use CreateColorPalette to make constant index instead of this:
-        const uint8_t i = isRgb ? static_cast<uint8_t>(indices[ptnum]) : 1;
+        const uint8_t i = isRgb ? static_cast<uint8_t>(indices[ptnum]) : 0;
         const GEO_VoxVoxel voxel{x, z, y, i};
         write_error |= stream.write((char*)&voxel, 4).fail();
     }
