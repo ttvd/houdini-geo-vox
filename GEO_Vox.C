@@ -479,7 +479,7 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
 
     if (not valid_gdp)
     {
-        std::cerr << "Only packed primitives are currently supported.\n";
+        std::cerr << "[ERROR] Only packed primitives are currently supported.\n";
         return GA_Detail::IOStatus(false);
     }
 
@@ -604,6 +604,28 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
         }
     }
     return GA_Detail::IOStatus(true);
+#endif
+}
+
+GA_Detail::IOStatus
+GEO_Vox::fileSaveToFile(const GEO_Detail *gdp, const char *filename)
+{
+#ifndef GEOVOX_FILE_SAVE
+    return GA_Detail::IOStatus(false);
+#else
+    auto result = GA_Detail::IOStatus(false);
+    if (!filename)
+    {
+        return  GA_Detail::IOStatus(false);
+    }
+
+    auto stream = std::ofstream(filename, std::ios::out | std::ios::binary);
+    if (stream.is_open())
+    {
+        result = fileSave(gdp, stream);
+        stream.close();
+    }
+    return result;
 #endif
 }
 
@@ -782,3 +804,4 @@ void GEO_Vox::CreateColorPalette(const GU_Detail &gdp, Rgb::Palette &palette, Rg
         indices[point_index] = palette_index < 255 ? palette_index : 255;
     }
 }
+

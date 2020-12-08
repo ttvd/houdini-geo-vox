@@ -73,6 +73,7 @@ class GEO_Vox : public GEO_IOTranslator
         int checkMagicNumber(unsigned magic) override;
         GA_Detail::IOStatus fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic) override;
         GA_Detail::IOStatus fileSave(const GEO_Detail* detail, std::ostream& stream) override;
+        GA_Detail::IOStatus	fileSaveToFile(const GEO_Detail *gdp, const char *filename) override;
 
     protected:
         //! Read a chunk.
