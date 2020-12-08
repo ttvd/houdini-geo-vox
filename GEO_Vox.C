@@ -472,17 +472,20 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
     const auto* gu_detail = dynamic_cast<const GU_Detail*>(detail);
     UT_ASSERT(gu_detail);
 
-    bool isRgb = false;
+    // TODO: Extent to check if there are volume prims also and handle it
+    // TODO: Extend to support only points geo (without packed cubes)
+    const bool only_packed_prims = detail->getNumPrimitives() == GU_PrimPacked::countPackedPrimitives(*detail);
+    if (detail->getNumPoints() != only_packed_prims)
+    {
+        std::cerr << "Only packed primitives are currently supported.\n";
+        return GA_Detail::IOStatus(false);
+    }
 
+    bool isRgb = false;
     if (detail->findFloatTuple(GA_ATTRIB_POINT, "Cd") != nullptr)
     {
         isRgb = true;
     }
-
-    // For now only packed prims ie. #points == #prims
-    // TODO: Extent to check if there are volume prims also and handle it
-    // TODO: Extend to support only points geo (without packed cubes)
-    UT_ASSERT_P(detail->getNumPrimitives() == detail->getNumPoints());
 
     static const uint32_t zero_size = 0u;
     unsigned int vox_magic_number = GEO_Vox::s_vox_magic;
