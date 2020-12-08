@@ -1,5 +1,3 @@
-#include "GEO_Vox.h"
-
 #include <UT/UT_DSOVersion.h>
 #include <GEO/GEO_Detail.h>
 #include <GEO/GEO_PrimPoly.h>
@@ -13,10 +11,11 @@
 #include <GU/GU_PrimPacked.h>
 #include <OpenImageIO/hash.h>
 
-#include <unordered_map>
+#include <unordered_set>
+#include "GEO_Vox.h"
 
 #define GEOVOX_FILE_SAVE
-#define GEOVOX_VERBOSE
+//#define GEOVOX_VERBOSE
 #define GEOVOX_SWAP_HOUDINI_AXIS
 #define GEOVOX_VOLUME_NAME "color_lut"
 
@@ -378,7 +377,15 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         }
     }
 
-    const bool import_as_volume = getenv("GEOVOX_IMPORT_AS_VOLUME") != nullptr;
+    bool import_as_volume = false;
+    const char* import_as_volume_var = getenv("GEOVOX_IMPORT_AS_VOLUME");
+    if (import_as_volume_var != nullptr)
+    {
+        if (std::string(import_as_volume_var) != "0" )
+        {
+            import_as_volume = true;
+        }
+    }
 
     if (!import_as_volume)
     {
@@ -392,7 +399,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         UT_ASSERT_P(color_attr_h.isValid());
         UT_ASSERT_P(palette_attr_h.isValid());
         GA_Offset ptoff;
-        GA_FOR_ALL_PTOFF(detail, ptoff)
+        GA_FOR_ALL_PTOFF(gu_detail, ptoff)
         {
                 const auto point_index = detail->pointIndex(ptoff);
                 const GEO_VoxVoxel &vox_voxel = vox_voxels(point_index);
@@ -405,10 +412,10 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
                 color_attr_h.set(ptoff, color);
                 palette_attr_h.set(ptoff, (int) vox_voxel.palette_index);
             }
-        UT_BoundingBox bbox; detail->getBBox(&bbox);
+        UT_BoundingBox bbox; gu_detail->getBBox(&bbox);
         UT_Matrix4F xform4; xform4.identity();
         xform4.translate(-bbox.center());
-        detail->transform(xform4);
+        gu_detail->transform(xform4);
     }
     else
     {
@@ -530,7 +537,7 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
 
     if (isRgb)
     {
-        palette.reserve(256);
+        palette.reserve(GEO_Vox::s_vox_palette_size);
         indices.resize(detail->getNumPoints());
         CreateColorPalette(*gu_detail, palette, indices);
     }
@@ -569,17 +576,21 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
         }
         else
         {
-            for (const auto &color: palette)
+            for (int index = 0; index < palette.size(); ++index )
             {
-                const uint8_t charcolor[4] = {static_cast<uint8_t>(color.r()), static_cast<uint8_t>(color.g()),
-                                              static_cast<uint8_t>(color.b()), 1};
+                auto color = palette.begin();
+                // unordered_set grows from head, so we need to account for that:
+                std::advance(color, palette.size() - index - 1);
+                const uint8_t charcolor[4] = {static_cast<uint8_t>(color->r()), static_cast<uint8_t>(color->g()),
+                                              static_cast<uint8_t>(color->b()), 1}; //TODO: Alpha?
                 write_error |= stream.write((char*)&charcolor, 4).fail();
 #ifdef GEOVOX_VERBOSE
                 std::cerr << (int)charcolor[0] << "," << (int)charcolor[1] << "," << (int)charcolor[2] << "\n";
 #endif
             }
-            write_error |= stream.write((char*)(&GEO_Vox::s_vox_default_palette+palette.size()),
-                                        rgb_size-palette.size()).fail();
+            const unsigned int* new_palette = &GEO_Vox::s_vox_default_palette[palette.size()];
+            write_error |= stream.write((char*)(new_palette),
+                                        rgb_size-palette.size()*sizeof(uint32_t)).fail();
         }
 
         if (write_error)
@@ -748,6 +759,8 @@ GEO_Vox::ReadVoxel(UT_IStream& stream, GEO_VoxVoxel& vox_voxel, unsigned int& by
 
 void GEO_Vox::CreateColorPalette(const GU_Detail &gdp, Rgb::Palette &palette, Rgb::Indices &indices)
 {
+    // FIXME: This is actually buggy, as I'm relying on elements' order in unordered_set
+    // which stays predictable as long as a container doesn't have to grow.
     GA_ROHandleV3 col_attr_h(gdp.findFloatTuple(GA_ATTRIB_POINT, "Cd"));
     UT_ASSERT_P(col_attr_h.isValid());
 
@@ -757,10 +770,10 @@ void GEO_Vox::CreateColorPalette(const GU_Detail &gdp, Rgb::Palette &palette, Rg
         const auto point_color   = col_attr_h.get(ptoff);
         const auto color_integer = UT_Vector3I(SYSclamp(point_color*256.0, UT_Vector3F(0.0), UT_Vector3F(255.0)));
         const auto palette_iter  = palette.insert(palette.begin(), color_integer);
-        const auto palette_index = std::distance(palette_iter, palette.end());
-        // NOTE: We take last one if color hasn't been found but palette exceeded its size
+        const auto palette_index = std::distance(palette_iter, palette.end()) - 1;
         const auto point_index = gdp.pointIndex(ptoff);
         UT_ASSERT_P(point_index < indices.size());
+        // NOTE: We take last one if color hasn't been found but palette exceeded its size
         indices[point_index] = palette_index < 255 ? palette_index : 255;
     }
 }

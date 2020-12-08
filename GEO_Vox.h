@@ -2,9 +2,8 @@
 
 #include <GEO/GEO_IOTranslator.h>
 #include <UT/UT_String.h>
-#include <unordered_set>
 
-class GEO_PrimPoly;
+
 class GU_Detail;
 
 struct GEO_VoxChunk
