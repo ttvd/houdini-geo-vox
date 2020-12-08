@@ -474,8 +474,10 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
 
     // TODO: Extent to check if there are volume prims also and handle it
     // TODO: Extend to support only points geo (without packed cubes)
-    const bool only_packed_prims = detail->getNumPrimitives() == GU_PrimPacked::countPackedPrimitives(*detail);
-    if (detail->getNumPoints() != only_packed_prims)
+    const bool valid_gdp = (detail->getNumPrimitives() == GU_PrimPacked::countPackedPrimitives(*gu_detail)) and \
+        (detail->getNumPrimitives() == gu_detail->getNumPoints());
+
+    if (not valid_gdp)
     {
         std::cerr << "Only packed primitives are currently supported.\n";
         return GA_Detail::IOStatus(false);
