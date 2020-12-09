@@ -423,6 +423,7 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         UT_BoundingBox bbox; gu_detail->getBBox(&bbox);
         UT_Matrix4F xform4; xform4.identity();
         xform4.translate(-bbox.center());
+        xform4.scale(1, 1, -1);
         gu_detail->transform(xform4);
     }
     else
