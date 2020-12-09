@@ -396,22 +396,30 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         GA_RWHandleV3 color_attr_h(detail->createTupleAttribute(GA_ATTRIB_POINT, "Cd", GA_STORE_REAL32, 3));
         GA_RWHandleI palette_attr_h(detail->createTupleAttribute(GA_ATTRIB_POINT,
                                                                  "vox_palette_index", GA_STORE_INT32, 1));
+        GA_RWHandleF alpha_attr_h(gu_detail->createTupleAttribute(GA_ATTRIB_POINT, "Alpha", GA_STORE_REAL32, 1));
         UT_ASSERT_P(color_attr_h.isValid());
         UT_ASSERT_P(palette_attr_h.isValid());
+        UT_ASSERT_P(alpha_attr_h.isValid());
+
         GA_Offset ptoff;
         GA_FOR_ALL_PTOFF(gu_detail, ptoff)
         {
-                const auto point_index = detail->pointIndex(ptoff);
-                const GEO_VoxVoxel &vox_voxel = vox_voxels(point_index);
-                const auto pos = UT_Vector3F(vox_voxel.x, vox_voxel.z, vox_voxel.y);
-                detail->setPos3(ptoff, pos);
-                const GEO_VoxPaletteColor &vox_palette_color = vox_palette(vox_voxel.palette_index);
-                auto color = UT_Vector3F(static_cast<int>(vox_palette_color.r), static_cast<int>(vox_palette_color.g),
-                                         static_cast<int>(vox_palette_color.b));
-                color /= 256.f;
-                color_attr_h.set(ptoff, color);
-                palette_attr_h.set(ptoff, (int) vox_voxel.palette_index);
-            }
+            const auto point_index = detail->pointIndex(ptoff);
+            const GEO_VoxVoxel &vox_voxel = vox_voxels(point_index);
+            palette_attr_h.set(ptoff, static_cast<int>(vox_voxel.palette_index));
+
+            const auto pos = UT_Vector3F(vox_voxel.x, vox_voxel.z, vox_voxel.y);
+            detail->setPos3(ptoff, pos);
+
+            const GEO_VoxPaletteColor &vox_palette_color = vox_palette(vox_voxel.palette_index);
+            const auto color = UT_Vector3F(static_cast<int>(vox_palette_color.r), static_cast<int>(vox_palette_color.g),
+                                         static_cast<int>(vox_palette_color.b)) / 256.f;
+            color_attr_h.set(ptoff, color);
+
+            auto alpha = static_cast<float>(vox_palette_color.a) / 256.0f;
+            alpha_attr_h.set(ptoff, alpha);
+        }
+
         UT_BoundingBox bbox; gu_detail->getBBox(&bbox);
         UT_Matrix4F xform4; xform4.identity();
         xform4.translate(-bbox.center());
@@ -475,7 +483,7 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
     // TODO: Extent to check if there are volume prims also and handle it
     // TODO: Extend to support only points geo (without packed cubes)
     const bool valid_gdp = (detail->getNumPrimitives() == GU_PrimPacked::countPackedPrimitives(*gu_detail)) and \
-        (detail->getNumPrimitives() == gu_detail->getNumPoints());
+        (detail->getNumPrimitives() == detail->getNumPoints());
 
     if (not valid_gdp)
     {
@@ -483,21 +491,10 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
         return GA_Detail::IOStatus(false);
     }
 
-    bool isRgb = false;
-    if (detail->findDiffuseAttribute(GA_ATTRIB_POINT) != nullptr)
-    {
-        isRgb = true;
-    }
-
-    bool isAlpha = false;
-    if (detail->findAlphaAttribute(GA_ATTRIB_POINT) != nullptr)
-    {
-        isAlpha= true;
-    }
+    const bool isRgb = detail->findDiffuseAttribute(GA_ATTRIB_POINT) != nullptr;
 
     static const uint32_t zero_size = 0u;
-    unsigned int vox_magic_number = GEO_Vox::s_vox_magic;
-    if(stream.write((char*)(&vox_magic_number), 4).fail())
+    if(stream.write((char*)(&GEO_Vox::s_vox_magic), 4).fail())
     {
             return GA_Detail::IOStatus(false);
     }
@@ -512,6 +509,7 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
     const uint32_t numVoxels = detail->getNumPoints();
     const uint32_t children_chunk_size = ComputeChunkSize(*gu_detail, numVoxels, isRgb);
     bool write_error = false;
+
     write_error |= stream.write((char*)&GEO_Vox::s_vox_main, 4).fail();
     write_error |= stream.write((char*)&zero_size, sizeof(uint32_t)).fail();
     write_error |= stream.write((char*)&children_chunk_size, sizeof(uint32_t)).fail();
