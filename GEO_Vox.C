@@ -313,7 +313,6 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
                 }
                 vox_voxels(idx) = vox_voxel;
             }
-            std::cerr  << "\n";
         }
         else if(GEO_Vox::s_vox_rgba == vox_chunk_child.chunk_id)
         {
@@ -335,7 +334,6 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
 
                 vox_palette(idx) = vox_palette_color;
             }
-             std::cerr  << "\n";
         }
         else
         {
