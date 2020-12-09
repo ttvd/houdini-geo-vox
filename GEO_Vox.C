@@ -484,9 +484,15 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
     }
 
     bool isRgb = false;
-    if (detail->findFloatTuple(GA_ATTRIB_POINT, "Cd") != nullptr)
+    if (detail->findDiffuseAttribute(GA_ATTRIB_POINT) != nullptr)
     {
         isRgb = true;
+    }
+
+    bool isAlpha = false;
+    if (detail->findAlphaAttribute(GA_ATTRIB_POINT) != nullptr)
+    {
+        isAlpha= true;
     }
 
     static const uint32_t zero_size = 0u;
@@ -586,9 +592,9 @@ GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
                 auto color = palette.begin();
                 // unordered_set grows from head, so we need to account for that:
                 std::advance(color, palette.size() - index - 1);
-                const uint8_t charcolor[4] = {static_cast<uint8_t>(color->r()), static_cast<uint8_t>(color->g()),
-                                              static_cast<uint8_t>(color->b()), 1}; //TODO: Alpha?
-                write_error |= stream.write((char*)&charcolor, 4).fail();
+                const uint8_t char_color[4] = {static_cast<uint8_t>(color->x()), static_cast<uint8_t>(color->y()),
+                                              static_cast<uint8_t>(color->z()), static_cast<uint8_t>(color->w()) };
+                write_error |= stream.write((char*)&char_color, 4).fail();
 #ifdef GEOVOX_VERBOSE
                 std::cerr << (int)charcolor[0] << "," << (int)charcolor[1] << "," << (int)charcolor[2] << "\n";
 #endif
@@ -787,15 +793,19 @@ GEO_Vox::ReadVoxel(UT_IStream& stream, GEO_VoxVoxel& vox_voxel, unsigned int& by
 void GEO_Vox::CreateColorPalette(const GU_Detail &gdp, Rgb::Palette &palette, Rgb::Indices &indices)
 {
     // FIXME: This is actually buggy, as I'm relying on elements' order in unordered_set
-    // which stays predictable as long as a container doesn't have to grow.
-    GA_ROHandleV3 col_attr_h(gdp.findFloatTuple(GA_ATTRIB_POINT, "Cd"));
+    //  which stays predictable as long as a container doesn't have to grow.
+
+    GA_ROHandleV3 col_attr_h(gdp.findDiffuseAttribute(GA_ATTRIB_POINT));
     UT_ASSERT_P(col_attr_h.isValid());
+    GA_ROHandleF alpha_attr_h(gdp.findAlphaAttribute(GA_ATTRIB_DETAIL));
+    const bool isAlpha = alpha_attr_h.isValid();
 
     GA_Offset ptoff;
     GA_FOR_ALL_PTOFF(&gdp, ptoff)
     {
         const auto point_color   = col_attr_h.get(ptoff);
-        const auto color_integer = UT_Vector3I(SYSclamp(point_color*256.0, UT_Vector3F(0.0), UT_Vector3F(255.0)));
+        const int  alpha         = isAlpha ? SYSclamp(static_cast<int>(alpha_attr_h.get(ptoff)*256), 0, 1) : 1u;
+        const auto color_integer = UT_Vector4I(SYSclamp(point_color*256.0, UT_Vector3F(0.0), UT_Vector3F(255.0)), alpha);
         const auto palette_iter  = palette.insert(palette.begin(), color_integer);
         const auto palette_index = std::distance(palette_iter, palette.end()) - 1;
         const auto point_index = gdp.pointIndex(ptoff);

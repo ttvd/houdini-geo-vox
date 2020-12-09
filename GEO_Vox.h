@@ -53,9 +53,9 @@ struct GEO_VoxVoxel
 };
 
 namespace Rgb {
-    auto Hash = [](const UT_Vector3I &color) { return color.hash(); };
-    auto Equal = [](const UT_Vector3I &c1, const UT_Vector3I &c2) { return c1.hash() == c2.hash(); };
-    using Palette = std::unordered_set<UT_Vector3I, decltype(Hash), decltype(Equal)>;
+    auto Hash = [](const UT_Vector4I &color) { return color.hash(); };
+    auto Equal = [](const UT_Vector4I &c1, const UT_Vector4I &c2) { return c1.hash() == c2.hash(); };
+    using Palette = std::unordered_set<UT_Vector4I, decltype(Hash), decltype(Equal)>;
     using Indices = std::vector<int>;
 }
 
