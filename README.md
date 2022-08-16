@@ -4,7 +4,7 @@
 
 ![houdini-geo-vox screenshot](http://i.imgur.com/stmKung.png)
 
-## Binaries, Houdini 19.0.5
+## Binaries, Houdini 19.0
 * [Windows, Houdini 19.0.561](https://github.com/ttvd/houdini-geo-vox/releases/download/1.0.6/houdini.geo.vox.19.0.561.rar)
 
 ## Binaries, Houdini 18.0
