@@ -4,6 +4,9 @@
 
 ![houdini-geo-vox screenshot](http://i.imgur.com/stmKung.png)
 
+## Binaries, Houdini 19.0
+* [Windows, Houdini 19.0.561](https://github.com/ttvd/houdini-geo-vox/releases/download/1.0.6/houdini.geo.vox.19.0.561.rar)
+
 ## Binaries, Houdini 18.0
 * [Windows, Houdini 18.0.348](https://github.com/ttvd/houdini-geo-vox/releases/download/1.0.5/houdini.geo.vox.18.0.348.updated.rar)
 
@@ -19,12 +22,12 @@
 
 ## Building
 
-* Tested on Windows and Houdini 18.0
+* Tested on Windows and Houdini 19.0.561
     * Generate a Visual Studio solution using premake:
-        * premake5 --houdini-version=18.0.348 vs2017
+        * premake5 --houdini-version=19.0.561 vs2019
     * Build the GEO Houdini dso GEO_Vox.dll.
     * Place the dso in the appropriate Houdini dso folder.
-        * On Windows this would be C:\Users\your_username\Documents\houdini18.0\dso
+        * On Windows this would be C:\Users\your_username\Documents\houdini19.0\dso
         * Or your HOUDINI_DSO_PATH
 
 ## Usage
