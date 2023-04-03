@@ -3,7 +3,7 @@
 #include <GEO/GEO_IOTranslator.h>
 #include <UT/UT_String.h>
 
-class GEO_PrimPoly;
+
 class GU_Detail;
 
 struct GEO_VoxChunk
@@ -52,25 +52,30 @@ struct GEO_VoxVoxel
     unsigned char palette_index;
 };
 
+namespace Rgb {
+    auto Hash = [](const UT_Vector4I &color) { return color.hash(); };
+    auto Equal = [](const UT_Vector4I &c1, const UT_Vector4I &c2) { return c1.hash() == c2.hash(); };
+    using Palette = std::unordered_set<UT_Vector4I, decltype(Hash), decltype(Equal)>;
+    using Indices = std::vector<int>;
+}
+
 class GEO_Vox : public GEO_IOTranslator
 {
     public:
-
         GEO_Vox();
         GEO_Vox(const GEO_Vox& ref);
-        virtual ~GEO_Vox();
+        ~GEO_Vox() override;
 
     public:
-
-        virtual GEO_IOTranslator* duplicate() const;
-        virtual const char* formatName() const;
-        virtual int checkExtension(const char* name);
-        virtual int checkMagicNumber(unsigned magic);
-        virtual GA_Detail::IOStatus fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic);
-        virtual GA_Detail::IOStatus fileSave(const GEO_Detail* detail, std::ostream& stream);
+        GEO_IOTranslator* duplicate() const override;
+        const char* formatName() const override;
+        int checkExtension(const char* name) override;
+        int checkMagicNumber(unsigned magic) override;
+        GA_Detail::IOStatus fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic) override;
+        GA_Detail::IOStatus fileSave(const GEO_Detail* detail, std::ostream& stream) override;
+        GA_Detail::IOStatus	fileSaveToFile(const GEO_Detail *gdp, const char *filename) override;
 
     protected:
-
         //! Read a chunk.
         bool ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk, unsigned int& bytes_read);
 
@@ -89,8 +94,17 @@ class GEO_Vox : public GEO_IOTranslator
         //! Return true if palette color corresponds to an empty voxel.
         bool IsPaletteColorEmpty(const GEO_VoxPaletteColor& palette_color) const;
 
-    protected:
+        //! Compute main chunk size from geometry present in GU_Detail
+        static uint32_t ComputeChunkSize(const GU_Detail& gdp, int numVoxels, bool isRgb);
 
+        //! Compute voxel size
+        //! TODO: This is only valid for pure packed prims gdp
+        static UT_Vector3I ComputeVoxelResolution(const GU_Detail& gdp, int numVoxels, bool isRgb);
+
+        //! Create Palette from attribute
+        static void CreateColorPalette(const GU_Detail& gdp, Rgb::Palette &palette, Rgb::Indices &indices);
+
+    protected:
         //! Magic numbers used by parser.
         static const unsigned int s_vox_magic;
         static const unsigned int s_vox_main;

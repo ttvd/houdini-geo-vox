@@ -1,5 +1,3 @@
-#include "GEO_Vox.h"
-
 #include <UT/UT_DSOVersion.h>
 #include <GEO/GEO_Detail.h>
 #include <GEO/GEO_PrimPoly.h>
@@ -10,7 +8,14 @@
 #include <UT/UT_Endian.h>
 #include <UT/UT_Algorithm.h>
 #include <SYS/SYS_Math.h>
+#include <GU/GU_PrimPacked.h>
+#include <OpenImageIO/hash.h>
 
+#include <unordered_set>
+#include "GEO_Vox.h"
+
+#define GEOVOX_FILE_SAVE
+//#define GEOVOX_VERBOSE
 #define GEOVOX_SWAP_HOUDINI_AXIS
 #define GEOVOX_VOLUME_NAME "color_lut"
 
@@ -24,6 +29,7 @@ const unsigned int GEO_Vox::s_vox_rgba = GEOVOX_MAKE_ID('R', 'G', 'B', 'A');
 
 const unsigned int GEO_Vox::s_vox_version = 150u;
 const unsigned int GEO_Vox::s_vox_palette_size = 256u;
+
 
 // Taken from https://voxel.codeplex.com/wikipage?title=Sample%20Codes .
 const unsigned int GEO_Vox::s_vox_default_palette[256u] =
@@ -169,7 +175,6 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         }
 
         UTswap_int32(vox_magic_number, vox_magic_number);
-
         if(!checkMagicNumber(vox_magic_number))
         {
             detail->clearAndDestroy();
@@ -185,7 +190,9 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
     }
 
     UTswap_int32(vox_version, vox_version);
-
+#ifdef GEOVOX_VERBOSE
+    std::cerr << "vox_version: " << vox_version << "\n";
+#endif
     if(GEO_Vox::s_vox_version != vox_version)
     {
         detail->clearAndDestroy();
@@ -198,7 +205,11 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         detail->clearAndDestroy();
         return GA_Detail::IOStatus(false);
     }
-
+#ifdef GEOVOX_VERBOSE
+    std::cerr << "vox_chunk_main.chunk_id: " << (char*)&vox_chunk_main.chunk_id << "\n";
+    std::cerr << "vox_chunk_main.content_size: " << vox_chunk_main.content_size << "\n";
+    std::cerr << "vox_chunk_main.children_chunk_size: " << vox_chunk_main.children_chunk_size << "\n";
+#endif
     if(GEO_Vox::s_vox_main != vox_chunk_main.chunk_id)
     {
         detail->clearAndDestroy();
@@ -235,6 +246,12 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
 
         if(GEO_Vox::s_vox_size == vox_chunk_child.chunk_id)
         {
+#ifdef GEOVOX_VERBOSE
+            std::cerr << "Reading: " << (char*)&GEO_Vox::s_vox_size << "\n";
+            std::cerr << "vox_chunk_child.chunk_id: " << (char*)&vox_chunk_child.chunk_id << "\n";
+            std::cerr << "vox_chunk_child.content_size: " << vox_chunk_child.content_size << "\n";
+            std::cerr << "vox_chunk_child.children_chunk_size: " << vox_chunk_child.children_chunk_size << "\n";
+#endif
             if(stream.bread(&vox_size_x) != 1)
             {
                 detail->clearAndDestroy();
@@ -264,6 +281,12 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         }
         else if(GEO_Vox::s_vox_xyzi == vox_chunk_child.chunk_id)
         {
+#ifdef GEOVOX_VERBOSE
+            std::cerr << "Reading: " << (char*)&GEO_Vox::s_vox_xyzi << "\n";
+            std::cerr << "vox_chunk_child.chunk_id: " << (char*)&vox_chunk_child.chunk_id << "\n";
+            std::cerr << "vox_chunk_child.content_size: " << vox_chunk_child.content_size << "\n";
+            std::cerr << "vox_chunk_child.children_chunk_size: " << vox_chunk_child.children_chunk_size << "\n";
+#endif
             unsigned int vox_voxel_count = 0u;
 
             if(stream.bread(&vox_voxel_count) != 1)
@@ -274,6 +297,10 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
 
             UTswap_int32(vox_voxel_count, vox_voxel_count);
             vox_child_bytes_read += sizeof(unsigned int);
+#ifdef GEOVOX_VERBOSE
+            std::cerr << "vox_size_: " << vox_size_x << ", " << vox_size_y << ", " << vox_size_z << "\n";
+            std::cerr << "vox_voxel_count: " << vox_voxel_count << "\n";
+#endif
 
             vox_voxels.setSize(vox_voxel_count);
             for(unsigned int idx = 0; idx < vox_voxel_count; ++idx)
@@ -284,12 +311,17 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
                     detail->clearAndDestroy();
                     return GA_Detail::IOStatus(false);
                 }
-
                 vox_voxels(idx) = vox_voxel;
             }
         }
         else if(GEO_Vox::s_vox_rgba == vox_chunk_child.chunk_id)
         {
+#ifdef GEOVOX_VERBOSE
+            std::cerr << "Reading: " << (char*)&GEO_Vox::s_vox_rgba << "\n";
+            std::cerr << "vox_chunk_child.chunk_id: " << (char*)&vox_chunk_child.chunk_id << "\n";
+            std::cerr << "vox_chunk_child.content_size: " << vox_chunk_child.content_size << "\n";
+            std::cerr << "vox_chunk_child.children_chunk_size: " << vox_chunk_child.children_chunk_size << "\n";
+#endif
             vox_palette.setSize(GEO_Vox::s_vox_palette_size);
             for(unsigned int idx = 0; idx < GEO_Vox::s_vox_palette_size; ++idx)
             {
@@ -305,6 +337,9 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         }
         else
         {
+#ifdef GEOVOX_VERBOSE
+            std::cerr << "Ignoring at: " << vox_child_bytes_read << "bytes\n";
+#endif
             // We don't know this chunk, skip content in addition to skipping children.
             if(!stream.seekg(vox_chunk_child.content_size, UT_IStream::UT_SEEK_CUR))
             {
@@ -340,42 +375,94 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
         }
     }
 
-    detail->addStringTuple(GA_ATTRIB_PRIMITIVE, "name", 1);
-    GA_RWHandleS name_attrib(detail->findPrimitiveAttribute("name"));
-
-    UT_Matrix3 xform;
-    xform.identity();
-
-#ifdef GEOVOX_SWAP_HOUDINI_AXIS
-    xform.scale(vox_size_x * 0.5f, vox_size_z * 0.5f, vox_size_y * 0.5f);
-#else
-    xform.scale(vox_size_x * 0.5f, vox_size_y * 0.5f, vox_size_z * 0.5f);
-#endif
-
-    GU_PrimVolume* volume = (GU_PrimVolume*) GU_PrimVolume::build((GU_Detail*) detail);
-    volume->setTransform(xform);
-    name_attrib.set(volume->getMapOffset(), GEOVOX_VOLUME_NAME);
-
-    UT_VoxelArrayWriteHandleF handle = volume->getVoxelWriteHandle();
-
-#ifdef GEOVOX_SWAP_HOUDINI_AXIS
-    handle->size(vox_size_x, vox_size_z, vox_size_y);
-#else
-    handle->size(vox_size_x, vox_size_y, vox_size_z);
-#endif
-
-    for(unsigned int idx_vox = 0, vox_entries = vox_voxels.entries(); idx_vox < vox_entries; ++idx_vox)
+    bool import_as_volume = false;
+    const char* import_as_volume_var = getenv("GEOVOX_IMPORT_AS_VOLUME");
+    if (import_as_volume_var != nullptr)
     {
-        GEO_VoxVoxel vox_voxel = vox_voxels(idx_vox);
-        const GEO_VoxPaletteColor& vox_palette_color = vox_palette(vox_voxel.palette_index);
-
-        if(!IsPaletteColorEmpty(vox_palette_color))
+        if (std::string(import_as_volume_var) != "0" )
         {
-#ifdef GEOVOX_SWAP_HOUDINI_AXIS
-            handle->setValue(vox_voxel.x, vox_voxel.z, vox_voxel.y, (float) vox_voxel.palette_index);
-#else
-            handle->setValue(vox_voxel.x, vox_voxel.y, vox_voxel.z, (float) vox_voxel.palette_index);
+            import_as_volume = true;
+        }
+    }
+
+    if (!import_as_volume)
+    {
+#ifdef GEOVOX_VERBOSE
+        std::cerr << "Importing as points \n";
 #endif
+        detail->appendPointBlock(vox_voxels.size());
+        GA_RWHandleV3 color_attr_h(detail->createTupleAttribute(GA_ATTRIB_POINT, "Cd", GA_STORE_REAL32, 3));
+        GA_RWHandleI palette_attr_h(detail->createTupleAttribute(GA_ATTRIB_POINT,
+                                                                 "vox_palette_index", GA_STORE_INT32, 1));
+        GA_RWHandleF alpha_attr_h(gu_detail->createTupleAttribute(GA_ATTRIB_POINT, "Alpha", GA_STORE_REAL32, 1));
+        UT_ASSERT_P(color_attr_h.isValid());
+        UT_ASSERT_P(palette_attr_h.isValid());
+        UT_ASSERT_P(alpha_attr_h.isValid());
+
+        GA_Offset ptoff;
+        GA_FOR_ALL_PTOFF(gu_detail, ptoff)
+        {
+            const auto point_index = detail->pointIndex(ptoff);
+            const GEO_VoxVoxel &vox_voxel = vox_voxels(point_index);
+            palette_attr_h.set(ptoff, static_cast<int>(vox_voxel.palette_index));
+
+            const auto pos = UT_Vector3F(vox_voxel.x, vox_voxel.z, vox_voxel.y);
+            detail->setPos3(ptoff, pos);
+
+            const GEO_VoxPaletteColor &vox_palette_color = vox_palette(vox_voxel.palette_index);
+            const auto color = UT_Vector3F(static_cast<int>(vox_palette_color.r), static_cast<int>(vox_palette_color.g),
+                                         static_cast<int>(vox_palette_color.b)) / 256.f;
+            color_attr_h.set(ptoff, color);
+
+            auto alpha = static_cast<float>(vox_palette_color.a) / 256.0f;
+            alpha_attr_h.set(ptoff, alpha);
+        }
+
+        UT_BoundingBox bbox; gu_detail->getBBox(&bbox);
+        UT_Matrix4F xform4; xform4.identity();
+        xform4.translate(-bbox.center());
+        xform4.scale(1, 1, -1);
+        gu_detail->transform(xform4);
+    }
+    else
+    {
+        detail->addStringTuple(GA_ATTRIB_PRIMITIVE, "name", 1);
+        GA_RWHandleS name_attrib(detail->findPrimitiveAttribute("name"));
+
+        UT_Matrix3 xform;
+        xform.identity();
+
+        #ifdef GEOVOX_SWAP_HOUDINI_AXIS
+        xform.scale(vox_size_x * 0.5f, vox_size_z * 0.5f, vox_size_y * 0.5f);
+        #else
+        xform.scale(vox_size_x * 0.5f, vox_size_y * 0.5f, vox_size_z * 0.5f);
+        #endif
+
+        GU_PrimVolume* volume = (GU_PrimVolume*) GU_PrimVolume::build((GU_Detail*) detail);
+        volume->setTransform(xform);
+        name_attrib.set(volume->getMapOffset(), GEOVOX_VOLUME_NAME);
+
+        UT_VoxelArrayWriteHandleF handle = volume->getVoxelWriteHandle();
+
+        #ifdef GEOVOX_SWAP_HOUDINI_AXIS
+        handle->size(vox_size_x, vox_size_z, vox_size_y);
+        #else
+        handle->size(vox_size_x, vox_size_y, vox_size_z);
+        #endif
+
+        for(unsigned int idx_vox = 0, vox_entries = vox_voxels.entries(); idx_vox < vox_entries; ++idx_vox)
+        {
+            GEO_VoxVoxel vox_voxel = vox_voxels(idx_vox);
+            const GEO_VoxPaletteColor& vox_palette_color = vox_palette(vox_voxel.palette_index);
+
+            if(!IsPaletteColorEmpty(vox_palette_color))
+            {
+                #ifdef GEOVOX_SWAP_HOUDINI_AXIS
+                handle->setValue(vox_voxel.x, vox_voxel.z, vox_voxel.y, (float) vox_voxel.palette_index);
+                #else
+                handle->setValue(vox_voxel.x, vox_voxel.y, vox_voxel.z, (float) vox_voxel.palette_index);
+                #endif
+            }
         }
     }
 
@@ -386,7 +473,163 @@ GEO_Vox::fileLoad(GEO_Detail* detail, UT_IStream& stream, bool ate_magic)
 GA_Detail::IOStatus
 GEO_Vox::fileSave(const GEO_Detail* detail, std::ostream& stream)
 {
+#ifndef GEOVOX_FILE_SAVE
     return GA_Detail::IOStatus(false);
+#else
+    const auto* gu_detail = dynamic_cast<const GU_Detail*>(detail);
+    UT_ASSERT(gu_detail);
+
+    // TODO: Extent to check if there are volume prims also and handle it
+    // TODO: Extend to support only points geo (without packed cubes)
+    const bool valid_gdp = (detail->getNumPrimitives() == GU_PrimPacked::countPackedPrimitives(*gu_detail)) and \
+        (detail->getNumPrimitives() == detail->getNumPoints());
+
+    if (not valid_gdp)
+    {
+        std::cerr << "[ERROR] Only packed primitives are currently supported.\n";
+        return GA_Detail::IOStatus(false);
+    }
+
+    const bool isRgb = detail->findDiffuseAttribute(GA_ATTRIB_POINT) != nullptr;
+
+    static const uint32_t zero_size = 0u;
+    if(stream.write((char*)(&GEO_Vox::s_vox_magic), 4).fail())
+    {
+            return GA_Detail::IOStatus(false);
+    }
+
+    unsigned int vox_version = GEO_Vox::s_vox_version;
+    if(stream.write((char*)(&vox_version), 4).fail())
+    {
+        return GA_Detail::IOStatus(false);
+    }
+
+    // Main chunk : 'MAIN' | children size (4bytes) | content size (4 bytes)
+    const uint32_t numVoxels = detail->getNumPoints();
+    const uint32_t children_chunk_size = ComputeChunkSize(*gu_detail, numVoxels, isRgb);
+    bool write_error = false;
+
+    write_error |= stream.write((char*)&GEO_Vox::s_vox_main, 4).fail();
+    write_error |= stream.write((char*)&zero_size, sizeof(uint32_t)).fail();
+    write_error |= stream.write((char*)&children_chunk_size, sizeof(uint32_t)).fail();
+
+    if (write_error)
+    {
+        return GA_Detail::IOStatus(false);
+    }
+
+    // Size chunk: 'SIZE' | children size (4 bytes) | content size (12 bytes) | 3x4 bytes
+    const uint32_t twelve_zero_size[2] = {12u, 0};
+    write_error |= stream.write((char*)&GEO_Vox::s_vox_size, 4).fail();
+    write_error |= stream.write(reinterpret_cast<const char*>(&twelve_zero_size), sizeof(int32_t)*2).fail();
+    const auto vox_size = ComputeVoxelResolution(*gu_detail, 0, 0);
+    const int vox_size_int[3] = {static_cast<int>(vox_size.x()), static_cast<int>(vox_size.z()),
+                                 static_cast<int>(vox_size.y())};
+    write_error |= stream.write((char*)&vox_size_int, 4*3).fail();
+
+    if (write_error)
+    {
+        return GA_Detail::IOStatus(false);
+    }
+
+    // Chunk XYZI: 'XYZI' | children size = 0 | content size = numvoxel (4B) + numvoxel*4
+    const uint32_t content_size = numVoxels * sizeof(uint32_t) + sizeof(uint32_t);
+    write_error |= stream.write((char*)&GEO_Vox::s_vox_xyzi, 4).fail();
+    write_error |= stream.write(reinterpret_cast<const char*>(&content_size), sizeof(uint32_t)).fail();
+    write_error |= stream.write(reinterpret_cast<const char*>(&zero_size), sizeof(uint32_t)).fail();
+    write_error |= stream.write(reinterpret_cast<const char*>(&numVoxels), sizeof(uint32_t)).fail();
+
+    // Palette generation from points' color
+    Rgb::Indices indices{0,0};
+    Rgb::Palette palette{0, Rgb::Hash, Rgb::Equal};
+
+    if (isRgb)
+    {
+        palette.reserve(GEO_Vox::s_vox_palette_size);
+        indices.resize(detail->getNumPoints());
+        CreateColorPalette(*gu_detail, palette, indices);
+    }
+
+    GA_Offset ptoff;
+    GA_FOR_ALL_PTOFF(detail, ptoff)
+    {
+        const auto pos = detail->getPos3(ptoff);
+        const auto ptnum = detail->pointIndex(ptoff);
+        const uint8_t x = SYSfloor(pos.x()+vox_size.x()/2.0f);
+        const uint8_t y = SYSfloor(pos.y()+vox_size.y()/2.0f);
+        const uint8_t z = SYSfloor(pos.z()+vox_size.z()/2.0f);
+        // FIXME: We could use CreateColorPalette to make constant index instead of this:
+        const uint8_t i = isRgb ? static_cast<uint8_t>(indices[ptnum]) : 0;
+        const GEO_VoxVoxel voxel{x, z, y, i};
+        write_error |= stream.write((char*)&voxel, 4).fail();
+    }
+
+    if (write_error)
+    {
+        return GA_Detail::IOStatus(false);
+    }
+
+    // Chunk RGBA: 'RGBA' | children size = 0 (4B) | content size = 1024 == 4*256
+    if (isRgb)
+    {
+        const uint32_t rgb_size = GEO_Vox::s_vox_palette_size * sizeof(uint32_t);
+        write_error |= stream.write((char*)&GEO_Vox::s_vox_rgba, 4).fail();
+        write_error |= stream.write((char*)&rgb_size, sizeof(uint32_t)).fail();
+        write_error |= stream.write(reinterpret_cast<const char*>(&zero_size), sizeof(uint32_t)).fail();
+
+        // FIXME: copy default palette to missing places in our palette
+        if (false)
+        {
+            write_error |= stream.write((char*)&GEO_Vox::s_vox_default_palette, rgb_size).fail();
+        }
+        else
+        {
+            for (int index = 0; index < palette.size(); ++index )
+            {
+                auto color = palette.begin();
+                // unordered_set grows from head, so we need to account for that:
+                std::advance(color, palette.size() - index - 1);
+                const uint8_t char_color[4] = {static_cast<uint8_t>(color->x()), static_cast<uint8_t>(color->y()),
+                                              static_cast<uint8_t>(color->z()), static_cast<uint8_t>(color->w()) };
+                write_error |= stream.write((char*)&char_color, 4).fail();
+#ifdef GEOVOX_VERBOSE
+                std::cerr << (int)charcolor[0] << "," << (int)charcolor[1] << "," << (int)charcolor[2] << "\n";
+#endif
+            }
+            const unsigned int* new_palette = &GEO_Vox::s_vox_default_palette[palette.size()];
+            write_error |= stream.write((char*)(new_palette),
+                                        rgb_size-palette.size()*sizeof(uint32_t)).fail();
+        }
+
+        if (write_error)
+        {
+            return GA_Detail::IOStatus(false);
+        }
+    }
+    return GA_Detail::IOStatus(true);
+#endif
+}
+
+GA_Detail::IOStatus
+GEO_Vox::fileSaveToFile(const GEO_Detail *gdp, const char *filename)
+{
+#ifndef GEOVOX_FILE_SAVE
+    return GA_Detail::IOStatus(false);
+#else
+    auto result = GA_Detail::IOStatus(false);
+    if (!filename)
+    {
+        return  GA_Detail::IOStatus(false);
+    }
+
+    auto stream = std::ofstream(filename, std::ios::out | std::ios::binary);
+    if (stream.is_open())
+    {
+        result = fileSave(gdp, stream);
+        stream.close();
+    }
+    return result;
+#endif
 }
 
 
@@ -419,7 +662,6 @@ GEO_Vox::ReadVoxChunk(UT_IStream& stream, GEO_VoxChunk& chunk, unsigned int& byt
 
     return true;
 }
-
 
 bool
 GEO_Vox::ReadPaletteColor(UT_IStream& stream, GEO_VoxPaletteColor& palette_color, unsigned int& bytes_read)
@@ -483,6 +725,33 @@ GEO_Vox::IsPaletteColorEmpty(const GEO_VoxPaletteColor& palette_color) const
     return 0x00000000 == palette_color.data_u;
 }
 
+uint32_t
+GEO_Vox::ComputeChunkSize(const GU_Detail& gdp, const int numVoxels, const bool isRgb)
+{
+    const uint32_t size_bytes = 12 + 12;
+    const uint32_t xyzi_bytes = 12 + numVoxels*sizeof(unsigned int) + sizeof(unsigned int);
+    const uint32_t rgba_bytes = isRgb ? 12u + GEO_Vox::s_vox_palette_size*sizeof(unsigned int) : 0u;
+    return size_bytes + xyzi_bytes + rgba_bytes;
+}
+
+UT_Vector3I
+GEO_Vox::ComputeVoxelResolution(const GU_Detail& gdp, const int numVoxels, const bool isRgb)
+{
+    const auto *cube = UTverify_cast<const GU_PrimPacked *>(gdp.getPrimitive(0));
+
+    UT_BoundingBoxF cube_bbox;
+    UT_BoundingBoxF gdp_bbox;
+    gdp.getBBox(&gdp_bbox);
+    cube->getBBox(&cube_bbox);
+
+    const auto vox_size = UT_Vector3I{
+            static_cast<int64>(gdp_bbox.sizeX() / cube_bbox.sizeX()),
+            static_cast<int64>(gdp_bbox.sizeY() / cube_bbox.sizeY()),
+            static_cast<int64>(gdp_bbox.sizeZ() / cube_bbox.sizeZ())
+    };
+
+    return vox_size;
+}
 
 bool
 GEO_Vox::ReadVoxel(UT_IStream& stream, GEO_VoxVoxel& vox_voxel, unsigned int& bytes_read)
@@ -517,3 +786,29 @@ GEO_Vox::ReadVoxel(UT_IStream& stream, GEO_VoxVoxel& vox_voxel, unsigned int& by
 
     return true;
 }
+
+void GEO_Vox::CreateColorPalette(const GU_Detail &gdp, Rgb::Palette &palette, Rgb::Indices &indices)
+{
+    // FIXME: This is actually buggy, as I'm relying on elements' order in unordered_set
+    //  which stays predictable as long as a container doesn't have to grow.
+
+    GA_ROHandleV3 col_attr_h(gdp.findDiffuseAttribute(GA_ATTRIB_POINT));
+    UT_ASSERT_P(col_attr_h.isValid());
+    GA_ROHandleF alpha_attr_h(gdp.findAlphaAttribute(GA_ATTRIB_DETAIL));
+    const bool isAlpha = alpha_attr_h.isValid();
+
+    GA_Offset ptoff;
+    GA_FOR_ALL_PTOFF(&gdp, ptoff)
+    {
+        const auto point_color   = col_attr_h.get(ptoff);
+        const int  alpha         = isAlpha ? SYSclamp(static_cast<int>(alpha_attr_h.get(ptoff)*256), 0, 1) : 1u;
+        const auto color_integer = UT_Vector4I(SYSclamp(point_color*256.0, UT_Vector3F(0.0), UT_Vector3F(255.0)), alpha);
+        const auto palette_iter  = palette.insert(palette.begin(), color_integer);
+        const auto palette_index = std::distance(palette_iter, palette.end()) - 1;
+        const auto point_index = gdp.pointIndex(ptoff);
+        UT_ASSERT_P(point_index < indices.size());
+        // NOTE: We take last one if color hasn't been found but palette exceeded its size
+        indices[point_index] = palette_index < 255 ? palette_index : 255;
+    }
+}
+
