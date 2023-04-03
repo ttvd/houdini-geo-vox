@@ -16,10 +16,10 @@
 ## Binaries, Houdini 17.5
 * [Windows, Houdini 17.5.360](https://github.com/ttvd/houdini-geo-vox/releases/download/1.0.4/houdini.geo.vox.17.5.360.win.rar)
 
-## Binaries, Houdini 16
+## Binaries, Houdini 16.0
 * [Windows, Houdini 16.0.557](https://github.com/ttvd/houdini-geo-vox/releases/download/1.0.3/houdini.geo.vox.16.0.557.win.rar)
 
-## Binaries, Houdini 15
+## Binaries, Houdini 15.0
 * [Mac OS X, Houdini 15.0.434](https://github.com/ttvd/houdini-geo-vox/releases/download/1.0.2/houdini.geo.vox.15.0.434.osx.tar.gz)
 * [Windows, Houdini 15.0.440](https://github.com/ttvd/houdini-geo-vox/releases/download/1.0.2/houdini.geo.vox.15.0.440.win.rar)
 
@@ -30,7 +30,7 @@
         * premake5 --houdini-version=19.5.493 vs2022
     * Build the GEO Houdini dso GEO_Vox.dll.
     * Place the dso in the appropriate Houdini dso folder.
-        * On Windows this would be C:\Users\your_username\Documents\houdini19.0\dso
+        * On Windows this would be C:\Users\your_username\Documents\houdini19.5\dso
         * Or your HOUDINI_DSO_PATH
 
 ## Usage
